@@ -97,13 +97,17 @@ All endpoints return a consistent envelope:
 | Tag | Prefix | Description |
 |---|---|---|
 | Auth | `/users` | Register, login, logout, token refresh, OTP flows |
-| Products | `/products` | CRUD + CSV bulk upload |
+| Products | `/products` | CRUD + CSV bulk upload + Barcodes/QR codes |
 | Categories | `/categories` | User-scoped + admin global view |
 | Units | `/units` | Measurement unit management |
 | Customers | `/customers` | Customer profiles with photo upload |
 | Suppliers | `/suppliers` | Supplier profiles with banking details |
 | Purchases | `/purchases` | Purchase orders, status transitions, return preview |
-| Orders | `/orders` | Sales orders, status machine, PDF invoice |
+| Orders | `/orders` | Sales orders, status machine, PDF invoice streaming |
+| Payments | `/payments` | Razorpay order creation, HMAC verification, webhook reconciliation |
+| Warehouses | `/warehouses` | Multi-warehouse regional allocation, bin locations, stock transfers |
+| Returns | `/returns` | Customer returns lifecycle, manager restock, automated Razorpay refunds |
+| Ledger | `/ledger` | Immutable inventory transaction double-entry audit trails |
 | Reports | `/reports` | Dashboard KPIs, stock, sales, purchases, top products, low-stock |
 | Scheduler | `/scheduler` | Admin control over cron job and alert threshold |
 
@@ -134,20 +138,24 @@ Tokens are accepted from three sources (in priority order): `Authorization: Bear
 
 ## 🗄️ Database Design
 
-Ten Mongoose models, all with `timestamps: true`:
+Fourteen interconnected Mongoose models, all with `timestamps: true`:
 
 | Model | Key Fields | Relationships |
 |---|---|---|
-| `User` | `username`, `email`, `password` (bcrypt), `role`, OTP fields, `refreshToken` | root entity |
+| `User` | `username`, `email`, `password` (bcrypt), `role` (`admin/manager/customer`), OTP fields, `refreshToken` | root entity |
 | `Category` | `category_name`, `created_by` | → User |
 | `Unit` | `unit_name`, `created_by` | → User |
-| `Product` | `product_code` (unique per user), `stock`, `buying_price`, `selling_price` | → Category, Unit, User |
+| `Product` | `product_code` (unique per user), `stock`, `buying_price`, `selling_price`, `min_threshold` | → Category, Unit, User |
 | `Customer` | `name`, `email`, `phone`, `type`, banking fields | → User |
 | `Supplier` | `name`, `shopname`, banking fields | → User |
-| `Purchase` | `purchase_no` (globally unique), `purchase_status` | → Supplier, User |
+| `Purchase` | `purchase_no` (globally unique), `purchase_status`, `warehouse_id` | → Supplier, Warehouse, User |
 | `PurchaseDetail` | `quantity`, `unitcost`, return tracking fields | → Purchase, Product |
-| `Order` | `invoice_no` (globally unique, auto-generated), `order_status` | → Customer, User |
+| `Order` | `invoice_no` (globally unique), `order_status`, `payment_info` (Razorpay details) | → Customer, Warehouse, User |
 | `OrderDetail` | `quantity`, `unitcost`, `total` | → Order, Product |
+| `Warehouse` | `warehouse_name`, `warehouse_code`, `location`, `capacity`, `is_default` | → User |
+| `WarehouseStock`| `warehouse_id`, `product_id`, `quantity`, `bin_location` | → Warehouse, Product |
+| `StockLedger` | `warehouse_id`, `product_id`, `transaction_type`, `quantity_change`, `reference_no` | → Warehouse, Product, User |
+| `ReturnRequest`| `return_no`, `order_id`, `items`, `status`, `refund_info` (Razorpay refund ID & amount) | → Order, Warehouse, User |
 
 **Notable design decisions:**
 
