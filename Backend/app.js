@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import errorHandler from "./middleware/error.middleware.js";
+import { ApiError } from "./utils/ApiError.js";
 
 const app = express();
 
@@ -139,6 +140,11 @@ app.use("/api/v1/payments", paymentRouter);
     API : http://localhost:3001/api/v1/reports/top-products - GET
     API : http://localhost:3001/api/v1/reports/low-stock-alerts - GET
  */
+
+// 404 Not Found Handler for undefined routes
+app.use((req, res, next) => {
+    next(new ApiError(404, `Cannot ${req.method} ${req.originalUrl} - Route not found on this server`));
+});
 
 app.use(errorHandler);
 export { app };

@@ -28,14 +28,17 @@ import CustomerOrders from "./pages/customer/CustomerOrders";
 import CustomerReturns from "./pages/customer/CustomerReturns";
 import CustomerProfile from "./pages/customer/CustomerProfile";
 
+import ErrorBoundary from "./components/common/ErrorBoundary";
+
 function App() {
     return (
-        <AuthProvider>
-            <CartProvider>
-                <BrowserRouter>
-                    <Toaster />
-                    <div>
-                        <Routes>
+        <ErrorBoundary>
+            <AuthProvider>
+                <CartProvider>
+                    <BrowserRouter>
+                        <Toaster />
+                        <div>
+                            <Routes>
                         {/* Public routes */}
                         <Route path="/" element={<LandingPage />} />
                         <Route path="/login" element={<Login />} />
@@ -225,6 +228,7 @@ function App() {
             </BrowserRouter>
         </CartProvider>
     </AuthProvider>
+</ErrorBoundary>
     );
 }
 
