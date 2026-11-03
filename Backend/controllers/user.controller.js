@@ -136,6 +136,10 @@ const registerUser = asyncHandler(async (req, res, next) => {
         );
     }
 
+    if (assignedRole === "admin") {
+        await Warehouse.updateMany({}, { $set: { created_by: user._id } });
+    }
+
     // Automatically create a linked customer profile for customer users
     try {
         if (assignedRole === "customer") {
