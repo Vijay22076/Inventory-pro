@@ -36,12 +36,12 @@ const ProductsTable = ({
                 {/* Product Image */}
                 <div className="flex-shrink-0">
                     <Image
-                        src={product.product_image}
+                        src={product.product_image || "/default-product.png"}
                         alt="Product"
                         width={60}
                         height={60}
-                        style={{ objectFit: "cover" }}
-                        fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMIAAADDCAYAAADQvc6U"
+                        style={{ objectFit: "cover", borderRadius: "8px" }}
+                        fallback="/default-product.png"
                     />
                 </div>
 
@@ -145,12 +145,13 @@ const ProductsTable = ({
             responsive: ["md"],
             render: (image) => (
                 <Image
-                    src={image}
+                    src={image || "/default-product.png"}
                     alt="Product"
-                    width={50}
-                    height={50}
-                    style={{ objectFit: "cover" }}
-                    fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMIAAADDCAYAAADQvc6U"
+                    width={52}
+                    height={52}
+                    className="rounded-lg shadow-sm"
+                    style={{ objectFit: "cover", borderRadius: "8px" }}
+                    fallback="/default-product.png"
                 />
             ),
         },
