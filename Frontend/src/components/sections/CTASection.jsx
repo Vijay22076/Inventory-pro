@@ -14,26 +14,27 @@ const CTASection = () => {
         >
             <div className="relative max-w-5xl mx-auto px-6 text-center">
                 <div className="inline-block mb-6 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full border border-white/20">
-                    <span className="text-white/90 text-sm font-medium tracking-wide">
-                        Start Your Trial Today
+                    <span className="text-white/90 text-sm font-semibold tracking-wide flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        Full-Stack Enterprise MERN Architecture
                     </span>
                 </div>
 
                 <SectionTitle
                     light
-                    title="Ready to Optimize Your Inventory?"
-                    description="Join thousands of businesses that have transformed their inventory management with InventoryPro"
+                    title="Ready to Modernize Your Inventory & Storefront?"
+                    description="Deploy multi-warehouse logistics, supplier purchase workflows, and consumer storefront ordering with automated Razorpay payments."
                 />
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-5 mt-12 md:mt-14">
                     <Button
                         type="secondary"
                         size="large"
-                        onClick={() => navigate("/signup")}
-                        className="group relative w-full sm:w-auto min-w-[220px] shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 hover:scale-105 hover:-translate-y-0.5"
+                        onClick={() => navigate("/customer/catalog")}
+                        className="group relative w-full sm:w-auto min-w-[220px] shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 hover:scale-105 hover:-translate-y-0.5 font-bold"
                     >
                         <span className="relative z-10 flex items-center justify-center gap-2">
-                            Sign Up Free
+                            Customer Storefront
                             <svg
                                 className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1"
                                 fill="none"
@@ -54,9 +55,9 @@ const CTASection = () => {
                         type="outline"
                         size="large"
                         onClick={() => navigate("/login")}
-                        className="w-full sm:w-auto min-w-[220px] backdrop-blur-sm bg-white/5 hover:bg-white/15 border-2 border-white/30 hover:border-white/50 transition-all duration-300 hover:scale-105"
+                        className="w-full sm:w-auto min-w-[220px] backdrop-blur-sm bg-white/5 hover:bg-white/15 border-2 border-white/30 hover:border-white/50 transition-all duration-300 hover:scale-105 font-semibold text-white"
                     >
-                        Login
+                        Operations ERP Login
                     </Button>
                 </div>
 

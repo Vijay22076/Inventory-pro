@@ -1,5 +1,4 @@
 import {
-    DatabaseOutlined,
     TeamOutlined,
     BarChartOutlined,
     DashboardOutlined,
@@ -12,33 +11,55 @@ import {
     UsergroupAddOutlined,
     RollbackOutlined,
     UserOutlined,
+    CreditCardOutlined,
+    CarOutlined,
+    BellOutlined,
 } from "@ant-design/icons";
 import { Link } from "react-router-dom";
 
 export const navLinks = [
+    { name: "Portals", path: "ecosystem" },
     { name: "Features", path: "features" },
-    { name: "Process", path: "process" },
-    { name: "Testimonials", path: "testimonials" },
+    { name: "Multi-Warehouse", path: "warehouses" },
+    { name: "How It Works", path: "process" },
 ];
 
 export const features = [
     {
-        icon: <DatabaseOutlined />,
-        title: "Inventory Tracking",
+        icon: <ShopOutlined />,
+        title: "Multi-Warehouse Logistics",
         description:
-            "Real-time tracking of your inventory with automated updates and alerts.",
+            "Manage central and regional fulfillment hubs, bin locations, and audited inter-warehouse stock transfer state machines.",
     },
     {
-        icon: <BarChartOutlined />,
-        title: "Advanced Analytics",
+        icon: <ShoppingCartOutlined />,
+        title: "Customer Storefront & Cart",
         description:
-            "Gain insights with powerful reporting and visualization tools.",
+            "Dedicated consumer-facing product catalog with multi-item shopping cart drawer, live stock indicators, and real-time GST computation.",
     },
     {
-        icon: <TeamOutlined />,
-        title: "Team Collaboration",
+        icon: <CreditCardOutlined />,
+        title: "Razorpay Online Payments",
         description:
-            "Multiple user access with customizable permissions and roles.",
+            "Instant payments via UPI (GPay, PhonePe, Paytm), dynamic QR codes, and cards with SHA256 cryptographic HMAC verification.",
+    },
+    {
+        icon: <CarOutlined />,
+        title: "Visual Order Tracking Stepper",
+        description:
+            "Transparent 4-step delivery progress timeline (Placed → Verified Payment → Dispatched → Delivered) in the customer order modal.",
+    },
+    {
+        icon: <RollbackOutlined />,
+        title: "Automated Razorpay Refund API",
+        description:
+            "When administrators approve return requests, Razorpay refund API automatically returns funds directly to the customer's UPI/Card.",
+    },
+    {
+        icon: <BellOutlined />,
+        title: "Instant Low-Stock Email Alerts",
+        description:
+            "Automated stock monitoring triggers instant HTML alert emails to warehouse managers the moment an order drops stock below minimum threshold.",
     },
 ];
 
@@ -66,21 +87,27 @@ export const testimonials = [
 export const steps = [
     {
         number: "1",
-        title: "Sign Up for an Account",
+        title: "Supplier Procurement & Bin Stocking",
         description:
-            "Create your account in minutes and set up your inventory profiles.",
+            "Create purchase orders, receive verified vendor stock, and auto-allocate inventory into designated regional warehouse bins.",
     },
     {
         number: "2",
-        title: "Import Your Inventory",
+        title: "Multi-Warehouse Balancing",
         description:
-            "Easily import your existing inventory data or start fresh.",
+            "Transfer stock seamlessly between central distribution hubs and regional centers with strict dispatch and receipt verification.",
     },
     {
         number: "3",
-        title: "Start Managing Efficiently",
+        title: "Consumer Storefront & Cart Checkout",
         description:
-            "Track, analyze, and optimize your inventory in real-time.",
+            "Buyers browse live inventory, add multiple products to their cart drawer, and pay instantly via Razorpay UPI / Cards or COD.",
+    },
+    {
+        number: "4",
+        title: "Live Stepper Tracking & Automated Refunds",
+        description:
+            "Stream on-the-fly branded A4 GST invoices, track real-time delivery milestones, and process instant refunds on approved returns.",
     },
 ];
 

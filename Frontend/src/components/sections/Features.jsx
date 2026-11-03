@@ -18,9 +18,9 @@ const Features = ({ features }) => {
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
                 <SectionTitle
-                    overline="FEATURES"
-                    title="Powerful Features"
-                    description="Everything you need to manage your inventory efficiently in one place"
+                    overline="ENTERPRISE CAPABILITIES"
+                    title="Engineered for Modern Supply Chains"
+                    description="From multi-warehouse inventory balancing and Razorpay checkout to visual delivery progress and automated refunds."
                 />
                 
                 <Row gutter={[32, 32]} justify="center" className="mt-16">

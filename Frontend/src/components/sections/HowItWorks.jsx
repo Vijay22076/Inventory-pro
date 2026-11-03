@@ -17,9 +17,9 @@ const HowItWorks = ({ steps, onGetStarted }) => {
 
             <div className="relative z-10">
                 <SectionTitle
-                    overline="PROCESS"
+                    overline="FULFILLMENT LIFECYCLE"
                     title="How It Works"
-                    description="Get started in minutes with our simple three-step process"
+                    description="End-to-end commerce lifecycle: from supplier procurement to customer doorstep delivery"
                 />
 
                 <Row gutter={[80, 80]} align="middle" className="mt-20">

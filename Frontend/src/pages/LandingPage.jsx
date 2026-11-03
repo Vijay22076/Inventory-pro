@@ -3,6 +3,7 @@ import { Layout } from "antd";
 import { useNavigate } from "react-router-dom";
 import Navbar from "../components/layout/Navbar";
 import Hero from "../components/sections/Hero";
+import EcosystemSection from "../components/sections/EcosystemSection";
 import Features from "../components/sections/Features";
 import HowItWorks from "../components/sections/HowItWorks";
 import Testimonials from "../components/sections/Testimonials";
@@ -24,6 +25,7 @@ const LandingPage = () => {
             <Navbar />
             <Content>
                 <Hero onGetStarted={handleGetStarted} />
+                <EcosystemSection />
                 <Features features={features} />
                 <HowItWorks steps={steps} onGetStarted={handleGetStarted} />
                 <Testimonials testimonials={testimonials} />

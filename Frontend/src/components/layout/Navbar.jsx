@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { Layout, Button, Drawer } from "antd";
-import { MenuOutlined } from "@ant-design/icons";
+import { Layout, Button, Drawer, Tag } from "antd";
+import { MenuOutlined, ShoppingCartOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { navLinks } from "../../data";
 
@@ -47,14 +47,17 @@ const Navbar = () => {
             style={{ borderBottom: "none" }}
         >
             <div className="container mx-auto px-6 flex items-center justify-between">
-                <div className="flex items-center">
+                <div className="flex items-center gap-3">
                     <div
-                        className={`text-2xl font-bold cursor-pointer transition-colors duration-200 tracking-tight ${
-                            scrolled ? "text-blue-600" : "text-white"
+                        className={`text-2xl font-extrabold cursor-pointer transition-colors duration-200 tracking-tight flex items-center gap-2 ${
+                            scrolled ? "text-indigo-600" : "text-white"
                         }`}
                         onClick={() => handleNavigation("/")}
                     >
-                        InventoryPro
+                        <span>InventoryPro</span>
+                        <Tag color="cyan" className="font-semibold text-[11px] uppercase tracking-wider rounded-full border-0 px-2 py-0.5">
+                            Enterprise
+                        </Tag>
                     </div>
                 </div>
 
@@ -64,17 +67,19 @@ const Navbar = () => {
                             {navLinks.map((link) => (
                                 <li key={link.name}>
                                     <a
-                                        href="#"
+                                        href={`#${link.path}`}
                                         onClick={(e) => {
                                             const anchor =
                                                 document.getElementById(
                                                     link.path
                                                 );
                                             e.preventDefault();
-                                            anchor.scrollIntoView({
-                                                behavior: "smooth",
-                                                block: "center",
-                                            });
+                                            if (anchor) {
+                                                anchor.scrollIntoView({
+                                                    behavior: "smooth",
+                                                    block: "start",
+                                                });
+                                            }
                                         }}
                                         className={`text-sm font-medium transition-all duration-200 relative group ${
                                             scrolled
@@ -97,6 +102,17 @@ const Navbar = () => {
                     </nav>
                     <div className="flex items-center gap-3">
                         <Button
+                            icon={<ShoppingCartOutlined />}
+                            onClick={() => handleNavigation("/customer/catalog")}
+                            className={`h-9 px-4 text-sm font-semibold rounded-xl transition-all duration-200 flex items-center gap-1.5 ${
+                                scrolled
+                                    ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+                                    : "bg-white/20 text-white border-white/30 hover:bg-white/30 backdrop-blur-sm"
+                            }`}
+                        >
+                            Buyer Storefront
+                        </Button>
+                        <Button
                             onClick={() => handleNavigation("/login")}
                             className={`h-9 px-5 text-sm font-medium border rounded-xl transition-all duration-200 ${
                                 scrolled
@@ -110,8 +126,8 @@ const Navbar = () => {
                             onClick={() => handleNavigation("/signup")}
                             className={`h-9 px-5 text-sm font-medium rounded-xl border-0 transition-all duration-200 shadow-sm hover:shadow ${
                                 scrolled
-                                    ? "bg-blue-600 text-white hover:bg-blue-700"
-                                    : "bg-white text-blue-600 hover:bg-gray-50"
+                                    ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                                    : "bg-white text-indigo-600 hover:bg-gray-50"
                             }`}
                         >
                             Sign Up
@@ -185,6 +201,14 @@ const Navbar = () => {
                         ))}
                     </nav>
                     <div className="flex flex-col gap-3 pt-6 border-t border-gray-100">
+                        <Button
+                            block
+                            icon={<ShoppingCartOutlined />}
+                            onClick={() => handleNavigation("/customer/catalog")}
+                            className="h-10 text-sm font-semibold bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100 rounded-xl flex items-center justify-center gap-2"
+                        >
+                            Buyer Storefront
+                        </Button>
                         <Button
                             block
                             onClick={() => handleNavigation("/login")}
