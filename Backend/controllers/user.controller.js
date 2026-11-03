@@ -791,16 +791,24 @@ const getManagersAdmin = asyncHandler(async (req, res, next) => {
     }
 });
 
-// Customer: Update contact profile & phone
+// Customer: Update contact profile & phone / username
 const updateCustomerProfile = asyncHandler(async (req, res, next) => {
     try {
-        const { phone } = req.body;
+        const { phone, username } = req.body;
         const user = await User.findById(req.user._id);
         if (!user) {
             return next(new ApiError(404, "User not found"));
         }
 
-        if (phone !== undefined) user.phone = phone;
+        if (username && username.trim().toLowerCase() !== user.username) {
+            const existed = await User.findOne({ username: username.trim().toLowerCase() });
+            if (existed && existed._id.toString() !== user._id.toString()) {
+                return next(new ApiError(409, "Username is already taken by another account"));
+            }
+            user.username = username.trim().toLowerCase();
+        }
+
+        if (phone !== undefined) user.phone = phone.trim();
         await user.save({ validateBeforeSave: false });
 
         return res
@@ -857,6 +865,39 @@ const addShippingAddress = asyncHandler(async (req, res, next) => {
     }
 });
 
+// Customer: Set default shipping address
+const setDefaultShippingAddress = asyncHandler(async (req, res, next) => {
+    try {
+        const { addressId } = req.params;
+        const user = await User.findById(req.user._id);
+        if (!user) {
+            return next(new ApiError(404, "User not found"));
+        }
+
+        let found = false;
+        user.shipping_addresses.forEach((addr) => {
+            if (addr._id.toString() === addressId.toString()) {
+                addr.is_default = true;
+                found = true;
+            } else {
+                addr.is_default = false;
+            }
+        });
+
+        if (!found) {
+            return next(new ApiError(404, "Shipping address not found"));
+        }
+
+        await user.save({ validateBeforeSave: false });
+
+        return res
+            .status(200)
+            .json(new ApiResponse(200, user.shipping_addresses, "Default address set successfully"));
+    } catch (error) {
+        return next(new ApiError(500, error.message));
+    }
+});
+
 // Customer: Delete shipping address
 const deleteShippingAddress = asyncHandler(async (req, res, next) => {
     try {
@@ -866,9 +907,18 @@ const deleteShippingAddress = asyncHandler(async (req, res, next) => {
             return next(new ApiError(404, "User not found"));
         }
 
+        const wasDefault = user.shipping_addresses.some(
+            (addr) => addr._id.toString() === addressId.toString() && addr.is_default
+        );
+
         user.shipping_addresses = user.shipping_addresses.filter(
             (addr) => addr._id.toString() !== addressId.toString()
         );
+
+        // If the deleted address was default and there are remaining addresses, set the first as default
+        if (wasDefault && user.shipping_addresses.length > 0) {
+            user.shipping_addresses[0].is_default = true;
+        }
 
         await user.save({ validateBeforeSave: false });
 
@@ -902,6 +952,7 @@ export {
     getManagersAdmin,
     updateCustomerProfile,
     addShippingAddress,
+    setDefaultShippingAddress,
     deleteShippingAddress,
 };
 

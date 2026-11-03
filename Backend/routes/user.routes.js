@@ -21,6 +21,7 @@ import {
     getManagersAdmin,
     updateCustomerProfile,
     addShippingAddress,
+    setDefaultShippingAddress,
     deleteShippingAddress,
 } from "../controllers/user.controller.js";
 import { upload } from "../middleware/multer.middleware.js";
@@ -103,5 +104,14 @@ router
 router
     .route("/customer/shipping-addresses/:addressId")
     .delete(verifyJWT, deleteShippingAddress);
+
+router
+    .route("/customer/addresses/:addressId/default")
+    .patch(verifyJWT, setDefaultShippingAddress)
+    .put(verifyJWT, setDefaultShippingAddress);
+router
+    .route("/customer/shipping-addresses/:addressId/default")
+    .patch(verifyJWT, setDefaultShippingAddress)
+    .put(verifyJWT, setDefaultShippingAddress);
 
 export default router;

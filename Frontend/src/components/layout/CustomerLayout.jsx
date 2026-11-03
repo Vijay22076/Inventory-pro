@@ -215,25 +215,30 @@ const CustomerLayout = () => {
 
                     {/* Customer Profile Card */}
                     <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs flex items-center justify-between">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                            <Avatar
-                                src={user?.avatar}
-                                icon={<UserOutlined />}
-                                size={38}
-                                className="bg-gradient-to-tr from-indigo-600 to-violet-500 text-white font-bold ring-2 ring-indigo-100 shrink-0"
-                            />
-                            <div className="min-w-0">
-                                <p className="text-xs font-bold text-slate-900 truncate m-0">
-                                    {user?.username || "Customer"}
-                                </p>
-                                <p className="text-[10px] text-slate-400 truncate m-0">
-                                    {user?.email || ""}
-                                </p>
-                                <Tag color="cyan" className="text-[9px] uppercase font-bold m-0 px-1 py-0 mt-0.5">
-                                    {user?.role || "customer"}
-                                </Tag>
-                            </div>
-                        </div>
+                        <Tooltip title="View & Edit Profile, Addresses & Password">
+                            <button
+                                onClick={() => navigate("/customer/profile")}
+                                className="flex items-center gap-2.5 min-w-0 text-left hover:opacity-80 transition-opacity cursor-pointer group"
+                            >
+                                <Avatar
+                                    src={user?.avatar}
+                                    icon={<UserOutlined />}
+                                    size={38}
+                                    className="bg-gradient-to-tr from-indigo-600 to-violet-500 text-white font-bold ring-2 ring-indigo-100 shrink-0 group-hover:scale-105 transition-transform"
+                                />
+                                <div className="min-w-0">
+                                    <p className="text-xs font-bold text-slate-900 truncate m-0 group-hover:text-indigo-600 transition-colors">
+                                        {user?.username || "Customer"}
+                                    </p>
+                                    <p className="text-[10px] text-slate-400 truncate m-0">
+                                        {user?.email || ""}
+                                    </p>
+                                    <Tag color="cyan" className="text-[9px] uppercase font-bold m-0 px-1 py-0 mt-0.5">
+                                        {user?.role || "customer"}
+                                    </Tag>
+                                </div>
+                            </button>
+                        </Tooltip>
 
                         <Tooltip title="Sign Out">
                             <button
@@ -321,22 +326,27 @@ const CustomerLayout = () => {
                             </Link>
                         )}
 
-                        <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-                            <Avatar
-                                src={user?.avatar}
-                                icon={<UserOutlined />}
-                                size={34}
-                                className="bg-indigo-600 text-white font-semibold ring-2 ring-indigo-50"
-                            />
-                            <div className="hidden md:flex flex-col text-left">
-                                <span className="text-xs font-bold text-slate-800 leading-tight">
-                                    {user?.username || "Customer"}
-                                </span>
-                                <span className="text-[10px] text-slate-400">
-                                    Buyer Portal
-                                </span>
-                            </div>
-                        </div>
+                        <Tooltip title="Account Settings & Profile">
+                            <button
+                                onClick={() => navigate("/customer/profile")}
+                                className="flex items-center gap-2 pl-2 border-l border-slate-200 hover:opacity-85 transition-opacity cursor-pointer group text-left"
+                            >
+                                <Avatar
+                                    src={user?.avatar}
+                                    icon={<UserOutlined />}
+                                    size={34}
+                                    className="bg-indigo-600 text-white font-semibold ring-2 ring-indigo-50 group-hover:scale-105 transition-transform"
+                                />
+                                <div className="hidden md:flex flex-col text-left">
+                                    <span className="text-xs font-bold text-slate-800 leading-tight group-hover:text-indigo-600 transition-colors">
+                                        {user?.username || "Customer"}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400">
+                                        Buyer Profile
+                                    </span>
+                                </div>
+                            </button>
+                        </Tooltip>
                     </div>
                 </header>
 
