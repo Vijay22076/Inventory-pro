@@ -219,11 +219,6 @@ export const getMenuItemsByRole = (role) => {
             icon: <BarChartOutlined />,
             label: <Link to="/reports">Reports & Audit</Link>,
         },
-        {
-            key: "customer-store-preview",
-            icon: <ShopOutlined />,
-            label: <Link to="/customer/catalog">Customer Storefront</Link>,
-        },
     ];
 };
 
