@@ -39,8 +39,13 @@ export const validateProductData = (productData) => {
         isValid = false;
     }
 
-    if (!productData.product_code?.trim()) {
+    const cleanCode = (productData.product_code || "").trim().toUpperCase();
+    if (!cleanCode) {
         errors.product_code = "Product code is required";
+        isValid = false;
+    } else if (!/^[A-Z0-9]{8}$/.test(cleanCode)) {
+        errors.product_code =
+            "Product code must be exactly 8 characters consisting of UPPERCASE letters and numbers (e.g. PROD1001)";
         isValid = false;
     }
 

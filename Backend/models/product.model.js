@@ -12,7 +12,12 @@ const productSchema = mongoose.Schema(
             type: String,
             required: true,
             trim: true,
-            maxlength: 5,
+            uppercase: true,
+            maxlength: 8,
+            match: [
+                /^[A-Z0-9]{8}$/,
+                "Product code must be exactly 8 characters consisting of uppercase letters and numbers",
+            ],
         },
         category_id: {
             type: mongoose.Schema.Types.ObjectId,

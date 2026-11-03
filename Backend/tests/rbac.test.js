@@ -86,7 +86,7 @@ test("RBAC & Multi-Facility Access Control Test Suite", async (t) => {
     // Create a product
     const product = await Product.create({
         product_name: `RBAC Test Product ${uniqueSuffix}`,
-        product_code: `PRD-${uniqueSuffix.toString().slice(-4)}`,
+        product_code: `PR${uniqueSuffix.toString().slice(-6)}`,
         category_id: new mongoose.Types.ObjectId(),
         unit_id: new mongoose.Types.ObjectId(),
         buying_price: 100,

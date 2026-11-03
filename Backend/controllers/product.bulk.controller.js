@@ -166,8 +166,10 @@ export const bulkUploadProducts = asyncHandler(async (req, res, next) => {
         if (!productName) rowErrors.push("product_name is required");
         if (!productCode) {
             rowErrors.push("product_code is required");
-        } else if (productCode.length > 5) {
-            rowErrors.push("product_code must be 5 characters or less");
+        } else if (!/^[A-Z0-9]{8}$/.test(productCode)) {
+            rowErrors.push(
+                "product_code must be exactly 8 characters (UPPERCASE letters and numbers only)"
+            );
         }
 
         const categoryId = categoryName

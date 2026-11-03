@@ -61,3 +61,4 @@ export const validateStrongPassword = (_, value) => {
     }
     return Promise.resolve();
 };
+

@@ -128,7 +128,7 @@ async function runE2EVerification() {
     const profileUpdateRes = await request("/users/customer/profile", {
         method: "PUT",
         headers: custHeaders,
-        body: { phone: "+91 9998887776" },
+        body: { phone: "9876543210" },
     });
     assert(profileUpdateRes.status === 200, "Customer can update own profile phone number");
 
@@ -160,7 +160,7 @@ async function runE2EVerification() {
         if (!unit) unit = await Unit.create({ unit_name: "Piece", short_name: "pc", created_by: adminId });
         let cat = await Category.findOne();
         if (!cat) cat = await Category.create({ category_name: "Electronics", created_by: adminId });
-        const code = "P" + Math.floor(1000 + Math.random() * 9000);
+        const code = "PROD" + Math.floor(1000 + Math.random() * 9000);
         product = await Product.create({
             product_name: "Pro Gaming Mouse",
             product_code: code,

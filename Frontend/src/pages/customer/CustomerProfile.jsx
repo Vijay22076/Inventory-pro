@@ -96,10 +96,16 @@ const CustomerProfile = () => {
     // Handle Profile Update (Username & Phone)
     const handleUpdateProfile = async (values) => {
         try {
+            const cleanPhone = String(values.phone || "").trim();
+            if (!/^\d{10}$/.test(cleanPhone)) {
+                toast.error("Contact number must be exactly 10 digits (digits only)");
+                return;
+            }
+
             setUpdatingProfile(true);
             const response = await api.put("/users/customer/profile", {
                 username: values.username,
-                phone: values.phone,
+                phone: cleanPhone,
             });
 
             if (response.data.success) {
@@ -341,20 +347,30 @@ const CustomerProfile = () => {
 
                                 <Form.Item
                                     name="phone"
-                                    label={<span className="font-semibold text-slate-700">Contact Phone Number</span>}
+                                    label={
+                                        <span className="font-semibold text-slate-700">
+                                            Contact Phone Number (10 Digits)
+                                        </span>
+                                    }
                                     rules={[
                                         {
-                                            pattern: /^[+]?[0-9\s-]{7,15}$/,
-                                            message: "Please enter a valid phone number (7-15 digits)",
+                                            required: true,
+                                            message: "Please enter your 10-digit contact phone number",
+                                        },
+                                        {
+                                            pattern: /^\d{10}$/,
+                                            message: "Contact number must be exactly 10 digits (not less or more)",
                                         },
                                     ]}
-                                    extra="Used by logistics partners for parcel delivery updates."
+                                    normalize={(val) => (val ? val.replace(/\D/g, "").slice(0, 10) : "")}
+                                    extra="Must be exactly 10 digits without spaces or symbols. Used by logistics partners for delivery updates."
                                 >
                                     <Input
                                         prefix={<PhoneOutlined className="text-slate-400 mr-1" />}
-                                        placeholder="e.g. +91 9876543210"
+                                        placeholder="e.g. 9876543210"
+                                        maxLength={10}
                                         size="large"
-                                        className="rounded-xl"
+                                        className="rounded-xl font-mono text-base"
                                     />
                                 </Form.Item>
 

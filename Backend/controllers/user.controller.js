@@ -857,7 +857,24 @@ const updateCustomerProfile = asyncHandler(async (req, res, next) => {
             user.username = username.trim().toLowerCase();
         }
 
-        if (phone !== undefined) user.phone = phone.trim();
+        if (phone !== undefined) {
+            const cleanPhone = String(phone).trim();
+            // Contact number must be exactly 10 digits only
+            if (!/^\d{10}$/.test(cleanPhone)) {
+                return next(
+                    new ApiError(
+                        400,
+                        "Contact number must be exactly 10 digits (digits only, no spaces or special characters)"
+                    )
+                );
+            }
+            user.phone = cleanPhone;
+            // Also synchronize with Customer record if it exists
+            await Customer.updateOne(
+                { user_id: user._id },
+                { $set: { phone: cleanPhone } }
+            );
+        }
         await user.save({ validateBeforeSave: false });
 
         return res

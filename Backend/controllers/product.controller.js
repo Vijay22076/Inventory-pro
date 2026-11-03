@@ -31,6 +31,16 @@ const createProduct = asyncHandler(async (req, res, next) => {
         return next(new ApiError(400, "All product details are required"));
     }
 
+    const cleanProductCode = String(product_code || "").trim().toUpperCase();
+    if (!/^[A-Z0-9]{8}$/.test(cleanProductCode)) {
+        return next(
+            new ApiError(
+                400,
+                "Product code must be exactly 8 characters consisting of UPPERCASE alphabets and numbers (e.g., PROD1001)"
+            )
+        );
+    }
+
     try {
         let productImageUrl = "default-product.png";
         if (req.file) {
@@ -45,7 +55,7 @@ const createProduct = asyncHandler(async (req, res, next) => {
 
         const productData = {
             product_name,
-            product_code,
+            product_code: cleanProductCode,
             category_id,
             unit_id,
             buying_price,
@@ -224,6 +234,19 @@ const updateProduct = asyncHandler(async (req, res, next) => {
             if (image) {
                 updateData.product_image = image.url;
             }
+        }
+
+        if (updateData.product_code) {
+            const cleanCode = String(updateData.product_code).trim().toUpperCase();
+            if (!/^[A-Z0-9]{8}$/.test(cleanCode)) {
+                return next(
+                    new ApiError(
+                        400,
+                        "Product code must be exactly 8 characters consisting of UPPERCASE alphabets and numbers (e.g., PROD1001)"
+                    )
+                );
+            }
+            updateData.product_code = cleanCode;
         }
 
         if (

@@ -102,7 +102,7 @@ const ProductModal = ({
                                             name="product_code"
                                             label={
                                                 <span className="text-xs font-medium text-gray-600">
-                                                    Product Code
+                                                    Product Code (8 Characters: A-Z, 0-9)
                                                 </span>
                                             }
                                             rules={[
@@ -112,18 +112,27 @@ const ProductModal = ({
                                                         "Please enter product code",
                                                 },
                                                 {
-                                                    max: 5,
+                                                    pattern: /^[A-Z0-9]{8}$/,
                                                     message:
-                                                        "Maximum 5 characters allowed",
+                                                        "Product code must be exactly 8 characters (UPPERCASE letters and numbers only, e.g. PROD1001)",
                                                 },
                                             ]}
+                                            normalize={(value) =>
+                                                value
+                                                    ? value
+                                                          .toUpperCase()
+                                                          .replace(/[^A-Z0-9]/g, "")
+                                                          .slice(0, 8)
+                                                    : ""
+                                            }
                                             className="mb-3"
                                         >
                                             <Input
-                                                placeholder="Enter code"
+                                                placeholder="e.g. PROD1001"
                                                 disabled={!!editingProduct}
+                                                maxLength={8}
                                                 size="large"
-                                                className="rounded-md"
+                                                className="rounded-md font-mono tracking-wider"
                                             />
                                         </Form.Item>
                                     </Col>

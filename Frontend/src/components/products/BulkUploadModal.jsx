@@ -112,7 +112,7 @@ const BulkUploadModal = ({
 
         const csvContent = [
             "product_name,product_code,category_name,unit_name,buying_price,selling_price,stock",
-            `"Example Product",EX001,"${exampleCategory}","${exampleUnit}",100.00,150.00,25`,
+            `"Example Product",PROD1001,"${exampleCategory}","${exampleUnit}",100.00,150.00,25`,
         ].join("\n");
 
         const blob = new Blob([csvContent], {
