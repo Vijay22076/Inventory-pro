@@ -2,7 +2,6 @@ import React from "react";
 import { Row, Col, Tag, Steps, Badge } from "antd";
 import {
     ShoppingCartOutlined,
-    DashboardOutlined,
     SafetyCertificateOutlined,
     CreditCardOutlined,
     ShopOutlined,
@@ -10,17 +9,13 @@ import {
     CheckCircleOutlined,
     ThunderboltOutlined,
 } from "@ant-design/icons";
-import { useNavigate } from "react-router-dom";
-import Button from "../common/Button";
 import GradientBackground from "../common/GradientBackground";
 
 const Hero = () => {
-    const navigate = useNavigate();
-
     return (
         <GradientBackground className="py-20 md:py-32" type="blue">
             <Row gutter={[48, 48]} align="middle">
-                {/* Left Column: Headline, Subtitle, Badges & Dual CTAs */}
+                {/* Left Column: Headline, Subtitle, Badges */}
                 <Col xs={24} lg={12}>
                     <div className="text-white space-y-7">
                         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold text-white tracking-wide">
@@ -35,29 +30,6 @@ const Hero = () => {
                         <p className="text-base sm:text-lg text-white/90 leading-relaxed max-w-xl">
                             From supplier procurement and regional warehouse balancing to consumer storefront checkout with instant Razorpay UPI payments and live delivery milestone tracking.
                         </p>
-
-                        <div className="flex flex-wrap gap-4 pt-1">
-                            <Button
-                                type="secondary"
-                                size="large"
-                                icon={<ShoppingCartOutlined />}
-                                iconPosition="left"
-                                onClick={() => navigate("/customer/catalog")}
-                                className="shadow-lg hover:shadow-xl font-bold"
-                            >
-                                Customer Storefront
-                            </Button>
-                            <Button
-                                type="outline"
-                                size="large"
-                                icon={<DashboardOutlined />}
-                                iconPosition="left"
-                                onClick={() => navigate("/login")}
-                                className="font-semibold"
-                            >
-                                Admin & Manager ERP
-                            </Button>
-                        </div>
 
                         {/* Capability Badges */}
                         <div className="pt-4 border-t border-white/15 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs text-white/80">
