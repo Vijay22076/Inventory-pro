@@ -10,15 +10,22 @@ const allowedOrigins = [
     "https://inventorypro-ims.vercel.app",
     "http://localhost:3000",
     "http://localhost:5173",
+    ...(process.env.CORS_ORIGIN ? [process.env.CORS_ORIGIN] : []),
 ];
 
 app.use(
     cors({
         origin: (origin, callback) => {
-            // Allow non-browser requests (Postman, mobile apps)
+            // Allow non-browser requests (Postman, mobile apps, healthchecks)
             if (!origin) return callback(null, true);
 
-            if (allowedOrigins.includes(origin)) {
+            const isAllowed =
+                allowedOrigins.includes(origin) ||
+                origin.endsWith(".vercel.app") ||
+                (process.env.NODE_ENV !== "production" &&
+                    (origin.includes("localhost") || origin.includes("127.0.0.1")));
+
+            if (isAllowed) {
                 callback(null, true);
             } else {
                 console.log("Blocked by CORS:", origin);
