@@ -54,7 +54,7 @@ const validatePasswordRequirements = (password) => {
 };
 
 const registerUser = asyncHandler(async (req, res, next) => {
-    const { email, username, password } = req.body;
+    const { email, username, password, role } = req.body;
 
     if ([email, username, password].some((field) => field?.trim() === "")) {
         return next(new ApiError(400, "All fields are required"));
@@ -98,7 +98,26 @@ const registerUser = asyncHandler(async (req, res, next) => {
     const totalUsersCount = await User.countDocuments();
     const isFirstUser = totalUsersCount === 0;
     const isOwnerEmail = ["thejaklu@gmail.com", "rayapatiravitheja@gmail.com"].includes(email.toLowerCase());
-    const assignedRole = (isFirstUser || isOwnerEmail) ? "admin" : "customer";
+
+    // Determine assigned role: explicit role from signup or fallback
+    const validRoles = ["admin", "manager", "customer"];
+    let assignedRole = "customer";
+    if (role && validRoles.includes(role.toLowerCase().trim())) {
+        assignedRole = role.toLowerCase().trim();
+    } else if (isFirstUser || isOwnerEmail) {
+        assignedRole = "admin";
+    }
+
+    // If manager, auto-assign default warehouse for immediate operational visibility
+    let assignedWarehouses = [];
+    if (assignedRole === "manager") {
+        const defaultWh =
+            (await Warehouse.findOne({ is_default: true })) ||
+            (await Warehouse.findOne());
+        if (defaultWh) {
+            assignedWarehouses = [defaultWh._id];
+        }
+    }
 
     const user = await User.create({
         avatar: avatarUrl,
@@ -106,8 +125,16 @@ const registerUser = asyncHandler(async (req, res, next) => {
         password,
         username: username.toLowerCase(),
         role: assignedRole,
+        assigned_warehouses: assignedWarehouses,
         isVerified: true,
     });
+
+    if (assignedRole === "manager" && assignedWarehouses.length > 0) {
+        await Warehouse.updateOne(
+            { _id: assignedWarehouses[0] },
+            { $addToSet: { managers: user._id } }
+        );
+    }
 
     // Automatically create a linked customer profile for customer users
     try {
@@ -115,7 +142,7 @@ const registerUser = asyncHandler(async (req, res, next) => {
             await Customer.create({
                 name: username,
                 email: email,
-                phone: req.body.phone || "0000000000",
+                phone: req.body.phone || "9876543210",
                 address: req.body.address || "N/A",
                 user_id: user._id,
                 created_by: user._id,

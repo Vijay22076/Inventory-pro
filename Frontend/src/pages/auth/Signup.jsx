@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Form, Divider } from "antd";
+import { Form, Divider, Select } from "antd";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import AuthLayout from "../../components/auth/AuthLayout";
@@ -36,6 +36,7 @@ const Signup = () => {
             formData.append("username", values.username);
             formData.append("email", values.email);
             formData.append("password", values.password);
+            formData.append("role", values.role || "customer");
             if (avatarFile) {
                 formData.append("avatar", avatarFile);
             }
@@ -47,7 +48,8 @@ const Signup = () => {
             });
 
             if (response.data.success) {
-                toast.success("Your account has been created successfully.");
+                const roleBadge = (values.role || "customer").toUpperCase();
+                toast.success(`Account created successfully as ${roleBadge}! Please log in.`);
                 navigate("/login");
             }
         } catch (error) {
@@ -90,6 +92,37 @@ const Signup = () => {
                             />
                             <PasswordRequirements password={passwordValue} />
                         </div>
+
+                        <Form.Item
+                            name="role"
+                            label={
+                                <span className="text-xs font-semibold text-slate-700 tracking-wider">
+                                    Account Role
+                                </span>
+                            }
+                            initialValue="customer"
+                            rules={[{ required: true, message: "Please select your role" }]}
+                            className="mb-0 pt-1"
+                        >
+                            <Select
+                                size="large"
+                                className="rounded-xl w-full"
+                                options={[
+                                    {
+                                        value: "customer",
+                                        label: "🛍️ Customer / Buyer (Storefront, Cart & Orders)",
+                                    },
+                                    {
+                                        value: "manager",
+                                        label: "🏢 Warehouse Manager (Inventory & Operations)",
+                                    },
+                                    {
+                                        value: "admin",
+                                        label: "👑 System Administrator (Full ERP & Financials)",
+                                    },
+                                ]}
+                            />
+                        </Form.Item>
                     </div>
 
                     <Form.Item className="mb-0 mt-6">
