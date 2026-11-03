@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
     Tabs,
     Card,
@@ -36,6 +36,11 @@ import { useWarehouses } from "../hooks/warehouse/useWarehouses";
 import { useProducts } from "../hooks/products/useProducts";
 import useAuth from "../hooks/useAuth";
 import dayjs from "dayjs";
+import {
+    INDIAN_STATES,
+    getCitiesForState,
+    getPincodesForCity,
+} from "../utils/indiaLocations";
 
 const { Option } = Select;
 
@@ -78,6 +83,38 @@ const Warehouses = () => {
     const [selectedWarehouseName, setSelectedWarehouseName] = useState("");
     const [stockLoading, setStockLoading] = useState(false);
 
+    // Dynamic State, City, Pincode management for WMS
+    const [selectedState, setSelectedState] = useState("");
+    const [selectedCity, setSelectedCity] = useState("");
+
+    const availableCities = useMemo(() => {
+        return getCitiesForState(selectedState);
+    }, [selectedState]);
+
+    const availablePincodes = useMemo(() => {
+        return getPincodesForCity(selectedState, selectedCity);
+    }, [selectedState, selectedCity]);
+
+    const handleStateChange = (value) => {
+        setSelectedState(value);
+        setSelectedCity("");
+        warehouseForm.setFieldsValue({
+            state: value,
+            city: undefined,
+            pincode: undefined,
+        });
+    };
+
+    const handleCityChange = (value) => {
+        setSelectedCity(value);
+        const pins = getPincodesForCity(selectedState, value);
+        const defaultPin = pins.length > 0 ? pins[0] : "";
+        warehouseForm.setFieldsValue({
+            city: value,
+            pincode: defaultPin,
+        });
+    };
+
     const [transferModalOpen, setTransferModalOpen] = useState(false);
     const [transferForm] = Form.useForm();
     const [selectedSourceWh, setSelectedSourceWh] = useState(null);
@@ -105,21 +142,24 @@ const Warehouses = () => {
     const handleOpenWarehouseModal = (wh = null) => {
         setEditingWarehouse(wh);
         if (wh) {
+            const st = wh.address?.state || "";
+            const ct = wh.address?.city || "";
+            setSelectedState(st);
+            setSelectedCity(ct);
             warehouseForm.setFieldsValue({
                 warehouse_name: wh.warehouse_name,
                 warehouse_code: wh.warehouse_code,
                 type: wh.type,
-                city: wh.address?.city,
-                state: wh.address?.state,
-                pincode: wh.address?.pincode,
-                street: wh.address?.street,
-                contact_name: wh.contact_person?.name,
-                contact_email: wh.contact_person?.email,
-                contact_phone: wh.contact_person?.phone,
+                street: wh.address?.street || "",
+                state: st,
+                city: ct,
+                pincode: wh.address?.pincode || "",
                 total_capacity_sqft: wh.total_capacity_sqft,
                 is_default: wh.is_default,
             });
         } else {
+            setSelectedState("");
+            setSelectedCity("");
             warehouseForm.resetFields();
             warehouseForm.setFieldsValue({
                 type: "regional_hub",
@@ -135,15 +175,15 @@ const Warehouses = () => {
             warehouse_code: values.warehouse_code,
             type: values.type,
             address: {
-                city: values.city,
-                state: values.state || "",
-                pincode: values.pincode || "",
                 street: values.street || "",
+                state: values.state || "",
+                city: values.city,
+                pincode: values.pincode || "",
             },
             contact_person: {
-                name: values.contact_name || "",
-                email: values.contact_email || "",
-                phone: values.contact_phone || "",
+                name: "",
+                email: "",
+                phone: "",
             },
             total_capacity_sqft: values.total_capacity_sqft || 5000,
             is_default: values.is_default || false,
@@ -245,9 +285,17 @@ const Warehouses = () => {
             title: "Location",
             key: "location",
             render: (_, r) => (
-                <span className="text-sm text-slate-600">
-                    {r.address?.city}{r.address?.state ? `, ${r.address.state}` : ""}
-                </span>
+                <div className="flex flex-col">
+                    {r.address?.street ? (
+                        <span className="text-xs text-slate-500 font-normal truncate max-w-[220px]">
+                            {r.address.street}
+                        </span>
+                    ) : null}
+                    <span className="text-sm font-medium text-slate-700">
+                        {[r.address?.state, r.address?.city].filter(Boolean).join(", ")}
+                        {r.address?.pincode ? ` - ${r.address.pincode}` : ""}
+                    </span>
+                </div>
             ),
         },
         {
@@ -874,47 +922,83 @@ const Warehouses = () => {
 
                     <h4 className="text-sm font-semibold text-slate-700 mt-2 mb-3">Location & Address</h4>
                     <Row gutter={16}>
+                        {/* 1. Street / Landmark */}
+                        <Col span={24}>
+                            <Form.Item
+                                name="street"
+                                label="Street / Landmark"
+                                rules={[{ required: true, message: "Street / Landmark is required" }]}
+                            >
+                                <Input placeholder="e.g. 100 Industrial Expressway, Near Outer Ring Road" />
+                            </Form.Item>
+                        </Col>
+
+                        {/* 2. State (Dropdown) */}
+                        <Col span={12}>
+                            <Form.Item
+                                name="state"
+                                label="State"
+                                rules={[{ required: true, message: "State is required" }]}
+                            >
+                                <Select
+                                    placeholder="Select State"
+                                    showSearch
+                                    onChange={handleStateChange}
+                                    filterOption={(input, option) =>
+                                        (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+                                    }
+                                    options={INDIAN_STATES.map((s) => ({ label: s, value: s }))}
+                                />
+                            </Form.Item>
+                        </Col>
+
+                        {/* 3. City (Dropdown) */}
                         <Col span={12}>
                             <Form.Item
                                 name="city"
                                 label="City"
                                 rules={[{ required: true, message: "City is required" }]}
                             >
-                                <Input placeholder="e.g. Bangalore" />
+                                <Select
+                                    placeholder={selectedState ? "Select City" : "Select State first"}
+                                    disabled={!selectedState}
+                                    showSearch
+                                    onChange={handleCityChange}
+                                    filterOption={(input, option) =>
+                                        (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
+                                    }
+                                    options={availableCities.map((c) => ({ label: c, value: c }))}
+                                />
                             </Form.Item>
                         </Col>
-                        <Col span={12}>
-                            <Form.Item name="state" label="State">
-                                <Input placeholder="e.g. Karnataka" />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item name="pincode" label="Postal / PIN Code">
-                                <Input placeholder="e.g. 560001" />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item name="street" label="Street / Landmark">
-                                <Input placeholder="e.g. Industrial Area Phase 2" />
-                            </Form.Item>
-                        </Col>
-                    </Row>
 
-                    <h4 className="text-sm font-semibold text-slate-700 mt-2 mb-3">Facility Contact</h4>
-                    <Row gutter={16}>
-                        <Col span={8}>
-                            <Form.Item name="contact_name" label="Manager Name">
-                                <Input placeholder="John Doe" />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item name="contact_email" label="Contact Email">
-                                <Input placeholder="ops@company.com" />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item name="contact_phone" label="Contact Phone">
-                                <Input placeholder="+91 9876543210" />
+                        {/* 4. Postal / PIN Code (Dropdown showing available PIN codes of selected city, 6 digits) */}
+                        <Col span={12}>
+                            <Form.Item
+                                name="pincode"
+                                label="Postal / PIN Code (6 Digits)"
+                                rules={[
+                                    { required: true, message: "Postal / PIN Code is required" },
+                                    {
+                                        pattern: /^\d{6}$/,
+                                        message: "Postal / PIN Code must be exactly 6 digits (0-9)",
+                                    },
+                                ]}
+                                extra={
+                                    selectedCity && availablePincodes.length > 0
+                                        ? `Available PIN code(s) for ${selectedCity}: ${availablePincodes.join(", ")}`
+                                        : undefined
+                                }
+                            >
+                                <Select
+                                    placeholder={selectedCity ? "Select PIN code" : "Select City first"}
+                                    disabled={!selectedCity}
+                                    showSearch
+                                    options={availablePincodes.map((pin) => ({
+                                        label: `${pin} (${selectedCity})`,
+                                        value: pin,
+                                    }))}
+                                />
                             </Form.Item>
                         </Col>
                     </Row>

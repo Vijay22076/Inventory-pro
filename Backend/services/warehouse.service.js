@@ -137,6 +137,10 @@ class WarehouseService {
             throw new ApiError(400, "Warehouse name, code, and city are required");
         }
 
+        if (address?.pincode && !/^\d{6}$/.test(String(address.pincode).trim())) {
+            throw new ApiError(400, "Postal / PIN code must be exactly 6 digits (0-9)");
+        }
+
         const existing = await Warehouse.findOne({
             warehouse_code: warehouse_code.toUpperCase().trim(),
             created_by: userId,
@@ -196,6 +200,10 @@ class WarehouseService {
         const warehouse = await Warehouse.findOne({ _id: id, created_by: userId });
         if (!warehouse) {
             throw new ApiError(404, "Warehouse not found");
+        }
+
+        if (data.address?.pincode && !/^\d{6}$/.test(String(data.address.pincode).trim())) {
+            throw new ApiError(400, "Postal / PIN code must be exactly 6 digits (0-9)");
         }
 
         if (data.is_default && !warehouse.is_default) {

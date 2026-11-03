@@ -25,7 +25,17 @@ const warehouseSchema = new mongoose.Schema(
             city: { type: String, required: [true, "City is required"], trim: true },
             state: { type: String, default: "", trim: true },
             country: { type: String, default: "India", trim: true },
-            pincode: { type: String, default: "", trim: true },
+            pincode: {
+                type: String,
+                default: "",
+                trim: true,
+                validate: {
+                    validator: function (v) {
+                        return !v || /^\d{6}$/.test(v);
+                    },
+                    message: "Postal / PIN code must be exactly 6 digits (0-9)",
+                },
+            },
         },
         contact_person: {
             name: { type: String, default: "", trim: true },
