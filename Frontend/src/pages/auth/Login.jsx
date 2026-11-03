@@ -15,7 +15,12 @@ const Login = () => {
 
     const onFinish = async (values) => {
         setLoading(true);
-        const result = await login(values);
+        const cleanedValues = {
+            ...values,
+            email: values.email?.trim().toLowerCase(),
+            password: values.password?.trim(),
+        };
+        const result = await login(cleanedValues);
         if (result.success) {
             const loggedInUser = result.user;
             if (loggedInUser && loggedInUser.isVerified === false) {

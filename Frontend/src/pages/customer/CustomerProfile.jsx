@@ -15,6 +15,7 @@ import {
     Tabs,
     Divider,
     Alert,
+    Steps,
 } from "antd";
 import {
     UserOutlined,
@@ -31,6 +32,9 @@ import {
     StarFilled,
     SaveOutlined,
     InfoCircleOutlined,
+    ArrowLeftOutlined,
+    ReloadOutlined,
+    SendOutlined,
 } from "@ant-design/icons";
 import toast from "react-hot-toast";
 import useAuth from "../../hooks/useAuth";
@@ -46,9 +50,15 @@ const CustomerProfile = () => {
     const [profileForm] = Form.useForm();
     const [updatingProfile, setUpdatingProfile] = useState(false);
 
-    // Password Form state
+    // Password & OTP Verification state
     const [passwordForm] = Form.useForm();
-    const [updatingPassword, setUpdatingPassword] = useState(false);
+    const [passwordStep, setPasswordStep] = useState(1); // 1 = input passwords, 2 = confirm OTP
+    const [passwordPayload, setPasswordPayload] = useState({ oldPassword: "", newPassword: "" });
+    const [otpCode, setOtpCode] = useState("");
+    const [sendingOtp, setSendingOtp] = useState(false);
+    const [verifyingOtp, setVerifyingOtp] = useState(false);
+    const [devOtpHint, setDevOtpHint] = useState("");
+    const [resendTimer, setResendTimer] = useState(0);
 
     // Add Address Modal state
     const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
@@ -66,6 +76,19 @@ const CustomerProfile = () => {
             });
         }
     }, [user, profileForm]);
+
+    // Timer effect for resend OTP countdown
+    useEffect(() => {
+        let interval = null;
+        if (resendTimer > 0) {
+            interval = setInterval(() => {
+                setResendTimer((prev) => prev - 1);
+            }, 1000);
+        }
+        return () => {
+            if (interval) clearInterval(interval);
+        };
+    }, [resendTimer]);
 
     // Handle Profile Update (Username & Phone)
     const handleUpdateProfile = async (values) => {
@@ -87,23 +110,92 @@ const CustomerProfile = () => {
         }
     };
 
-    // Handle Password Change
-    const handleChangePassword = async (values) => {
+    // Step 1: Submit password details & trigger OTP email
+    const handleRequestPasswordOtp = async (values) => {
         try {
-            setUpdatingPassword(true);
-            const response = await api.post("/users/change-password", {
-                oldPassword: values.oldPassword,
-                newPassword: values.newPassword,
-            });
+            setSendingOtp(true);
+            const response = await api.post("/users/send-change-password-otp");
 
             if (response.data.success) {
-                toast.success("Password updated successfully! Please use your new password next time you sign in.");
-                passwordForm.resetFields();
+                setPasswordPayload({
+                    oldPassword: values.oldPassword,
+                    newPassword: values.newPassword,
+                });
+                if (response.data.data?.devOtp) {
+                    setDevOtpHint(response.data.data.devOtp);
+                }
+                setPasswordStep(2);
+                setResendTimer(30);
+                toast.success(`Verification OTP sent to ${user?.email || "your email"}! Please enter the code below.`);
             }
         } catch (err) {
-            toast.error(err.response?.data?.message || "Failed to change password. Please check your current password.");
+            toast.error(err.response?.data?.message || "Failed to dispatch verification OTP email");
         } finally {
-            setUpdatingPassword(false);
+            setSendingOtp(false);
+        }
+    };
+
+    // Resend OTP handler
+    const handleResendOtp = async () => {
+        if (resendTimer > 0) return;
+        try {
+            setSendingOtp(true);
+            const response = await api.post("/users/send-change-password-otp");
+            if (response.data.success) {
+                if (response.data.data?.devOtp) {
+                    setDevOtpHint(response.data.data.devOtp);
+                }
+                setResendTimer(30);
+                toast.success("A fresh verification OTP has been sent to your email!");
+            }
+        } catch (err) {
+            toast.error(err.response?.data?.message || "Failed to resend OTP");
+        } finally {
+            setSendingOtp(false);
+        }
+    };
+
+    // Step 2: Verify OTP and commit password change
+    const handleConfirmPasswordChange = async () => {
+        if (!otpCode || otpCode.trim().length !== 6) {
+            toast.error("Please enter a valid 6-digit OTP code");
+            return;
+        }
+
+        try {
+            setVerifyingOtp(true);
+
+            // 1. Verify OTP
+            const otpResponse = await api.post("/users/verify-change-password-otp", {
+                otp: otpCode.trim(),
+            });
+
+            if (!otpResponse.data.success) {
+                toast.error(otpResponse.data.message || "Invalid or expired OTP");
+                return;
+            }
+
+            // 2. Commit Password Change
+            const changeResponse = await api.post("/users/change-password", {
+                oldPassword: passwordPayload.oldPassword,
+                newPassword: passwordPayload.newPassword,
+            });
+
+            if (changeResponse.data.success) {
+                toast.success("Password verified and updated successfully! Please use your new password next time you sign in.");
+                passwordForm.resetFields();
+                setOtpCode("");
+                setPasswordPayload({ oldPassword: "", newPassword: "" });
+                setDevOtpHint("");
+                setPasswordStep(1);
+            }
+        } catch (err) {
+            toast.error(
+                err.response?.data?.message ||
+                "Failed to change password. Please check your current password and OTP."
+            );
+        } finally {
+            setVerifyingOtp(false);
         }
     };
 
@@ -446,98 +538,193 @@ const CustomerProfile = () => {
                                         Change Account Password
                                     </h3>
                                     <p className="text-xs text-slate-500 m-0">
-                                        Update your login credentials to protect your purchase history and saved payment sessions.
+                                        Two-factor email confirmation protects your orders and credentials from unauthorized changes.
                                     </p>
                                 </div>
                             </div>
 
-                            <Alert
-                                message="Security Recommendation"
-                                description="Choose a strong password containing at least 6 characters, combining letters, numbers, and symbols. Never share your password with anyone."
-                                type="info"
-                                showIcon
-                                className="mb-6 rounded-xl border-indigo-100 bg-indigo-50/50 text-indigo-900"
-                            />
-
-                            <Form
-                                form={passwordForm}
-                                layout="vertical"
-                                onFinish={handleChangePassword}
-                                className="space-y-4"
-                            >
-                                <Form.Item
-                                    name="oldPassword"
-                                    label={<span className="font-semibold text-slate-700">Current Password</span>}
-                                    rules={[{ required: true, message: "Please enter your current password" }]}
-                                >
-                                    <Input.Password
-                                        prefix={<LockOutlined className="text-slate-400 mr-1" />}
-                                        placeholder="Enter your current password"
-                                        size="large"
-                                        className="rounded-xl"
-                                    />
-                                </Form.Item>
-
-                                <Form.Item
-                                    name="newPassword"
-                                    label={<span className="font-semibold text-slate-700">New Password</span>}
-                                    rules={[
-                                        { required: true, message: "Please enter your new password" },
-                                        { min: 6, message: "New password must be at least 6 characters long" },
+                            {/* Two-Step Stepper */}
+                            <div className="mb-6">
+                                <Steps
+                                    current={passwordStep - 1}
+                                    size="small"
+                                    items={[
+                                        { title: "1. Credentials", icon: <LockOutlined /> },
+                                        { title: "2. Email OTP Confirmation", icon: <KeyOutlined /> },
                                     ]}
-                                >
-                                    <Input.Password
-                                        prefix={<KeyOutlined className="text-slate-400 mr-1" />}
-                                        placeholder="Enter a new strong password (min 6 characters)"
-                                        size="large"
-                                        className="rounded-xl"
-                                    />
-                                </Form.Item>
+                                />
+                            </div>
 
-                                <Form.Item
-                                    name="confirmPassword"
-                                    label={<span className="font-semibold text-slate-700">Confirm New Password</span>}
-                                    dependencies={["newPassword"]}
-                                    rules={[
-                                        { required: true, message: "Please re-enter your new password" },
-                                        ({ getFieldValue }) => ({
-                                            validator(_, value) {
-                                                if (!value || getFieldValue("newPassword") === value) {
-                                                    return Promise.resolve();
-                                                }
-                                                return Promise.reject(new Error("Passwords do not match!"));
-                                            },
-                                        }),
-                                    ]}
-                                >
-                                    <Input.Password
-                                        prefix={<CheckCircleOutlined className="text-slate-400 mr-1" />}
-                                        placeholder="Re-enter your new password"
-                                        size="large"
-                                        className="rounded-xl"
+                            {/* STEP 1: Enter Current & New Passwords */}
+                            {passwordStep === 1 && (
+                                <>
+                                    <Alert
+                                        message="Two-Factor Security Verification"
+                                        description="For your safety, when you submit your new password, a 6-digit confirmation code will be sent to your verified email address to authorize the change."
+                                        type="info"
+                                        showIcon
+                                        className="mb-6 rounded-xl border-indigo-100 bg-indigo-50/50 text-indigo-900"
                                     />
-                                </Form.Item>
 
-                                <div className="pt-3 flex gap-3">
-                                    <Button
-                                        type="primary"
-                                        htmlType="submit"
-                                        loading={updatingPassword}
-                                        icon={<LockOutlined />}
-                                        size="large"
-                                        className="bg-indigo-600 hover:bg-indigo-500 font-semibold px-6 rounded-xl shadow-xs"
+                                    <Form
+                                        form={passwordForm}
+                                        layout="vertical"
+                                        onFinish={handleRequestPasswordOtp}
+                                        className="space-y-4"
                                     >
-                                        Update Password
-                                    </Button>
-                                    <Button
-                                        size="large"
-                                        onClick={() => passwordForm.resetFields()}
-                                        className="rounded-xl font-medium"
-                                    >
-                                        Reset Form
-                                    </Button>
+                                        <Form.Item
+                                            name="oldPassword"
+                                            label={<span className="font-semibold text-slate-700">Current Password</span>}
+                                            rules={[{ required: true, message: "Please enter your current password" }]}
+                                        >
+                                            <Input.Password
+                                                prefix={<LockOutlined className="text-slate-400 mr-1" />}
+                                                placeholder="Enter your current password"
+                                                size="large"
+                                                className="rounded-xl"
+                                            />
+                                        </Form.Item>
+
+                                        <Form.Item
+                                            name="newPassword"
+                                            label={<span className="font-semibold text-slate-700">New Password</span>}
+                                            rules={[
+                                                { required: true, message: "Please enter your new password" },
+                                                { min: 6, message: "New password must be at least 6 characters long" },
+                                            ]}
+                                        >
+                                            <Input.Password
+                                                prefix={<KeyOutlined className="text-slate-400 mr-1" />}
+                                                placeholder="Enter a new strong password (min 6 characters)"
+                                                size="large"
+                                                className="rounded-xl"
+                                            />
+                                        </Form.Item>
+
+                                        <Form.Item
+                                            name="confirmPassword"
+                                            label={<span className="font-semibold text-slate-700">Confirm New Password</span>}
+                                            dependencies={["newPassword"]}
+                                            rules={[
+                                                { required: true, message: "Please re-enter your new password" },
+                                                ({ getFieldValue }) => ({
+                                                    validator(_, value) {
+                                                        if (!value || getFieldValue("newPassword") === value) {
+                                                            return Promise.resolve();
+                                                        }
+                                                        return Promise.reject(new Error("Passwords do not match!"));
+                                                    },
+                                                }),
+                                            ]}
+                                        >
+                                            <Input.Password
+                                                prefix={<CheckCircleOutlined className="text-slate-400 mr-1" />}
+                                                placeholder="Re-enter your new password"
+                                                size="large"
+                                                className="rounded-xl"
+                                            />
+                                        </Form.Item>
+
+                                        <div className="pt-3 flex gap-3">
+                                            <Button
+                                                type="primary"
+                                                htmlType="submit"
+                                                loading={sendingOtp}
+                                                icon={<SendOutlined />}
+                                                size="large"
+                                                className="bg-indigo-600 hover:bg-indigo-500 font-semibold px-6 rounded-xl shadow-xs"
+                                            >
+                                                Send Verification OTP
+                                            </Button>
+                                            <Button
+                                                size="large"
+                                                onClick={() => passwordForm.resetFields()}
+                                                className="rounded-xl font-medium"
+                                            >
+                                                Reset Form
+                                            </Button>
+                                        </div>
+                                    </Form>
+                                </>
+                            )}
+
+                            {/* STEP 2: Enter & Verify 6-digit OTP */}
+                            {passwordStep === 2 && (
+                                <div className="space-y-5 bg-slate-50/70 p-6 rounded-2xl border border-indigo-100">
+                                    <div className="space-y-1">
+                                        <h4 className="text-base font-bold text-slate-900 m-0 flex items-center gap-2">
+                                            <MailOutlined className="text-indigo-600" />
+                                            Check Your Email for Confirmation Code
+                                        </h4>
+                                        <p className="text-xs text-slate-500 m-0 leading-relaxed">
+                                            We sent a 6-digit one-time authorization code to <strong className="text-slate-800">{user?.email}</strong>.
+                                            Enter the code below to finalize your new password.
+                                        </p>
+                                    </div>
+
+                                    {devOtpHint && (
+                                        <div className="p-3 bg-indigo-100/70 border border-indigo-200 rounded-xl flex items-center justify-between text-xs text-indigo-900">
+                                            <span>Fast Verification Code (Dev Preview):</span>
+                                            <span className="font-mono font-bold text-sm bg-white px-2 py-0.5 rounded text-indigo-700 shadow-2xs">
+                                                {devOtpHint}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    <div className="space-y-2 max-w-sm">
+                                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600">
+                                            Enter 6-Digit Verification Code
+                                        </label>
+                                        <Input
+                                            prefix={<KeyOutlined className="text-indigo-500 text-lg mr-1" />}
+                                            placeholder="• • • • • •"
+                                            maxLength={6}
+                                            value={otpCode}
+                                            onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                                            size="large"
+                                            className="text-center font-mono tracking-widest text-2xl font-bold rounded-xl h-14"
+                                            autoFocus
+                                        />
+                                    </div>
+
+                                    <div className="pt-2 flex flex-wrap items-center gap-3">
+                                        <Button
+                                            type="primary"
+                                            loading={verifyingOtp}
+                                            onClick={handleConfirmPasswordChange}
+                                            icon={<CheckCircleOutlined />}
+                                            size="large"
+                                            className="bg-indigo-600 hover:bg-indigo-500 font-semibold px-6 rounded-xl shadow-xs"
+                                        >
+                                            Confirm & Update Password
+                                        </Button>
+
+                                        <Button
+                                            size="large"
+                                            disabled={resendTimer > 0}
+                                            loading={sendingOtp}
+                                            onClick={handleResendOtp}
+                                            icon={<ReloadOutlined />}
+                                            className="rounded-xl font-medium"
+                                        >
+                                            {resendTimer > 0 ? `Resend Code (${resendTimer}s)` : "Resend OTP"}
+                                        </Button>
+
+                                        <Button
+                                            size="large"
+                                            type="text"
+                                            onClick={() => {
+                                                setPasswordStep(1);
+                                                setOtpCode("");
+                                            }}
+                                            icon={<ArrowLeftOutlined />}
+                                            className="rounded-xl text-slate-500 hover:text-slate-800"
+                                        >
+                                            Back to Form
+                                        </Button>
+                                    </div>
                                 </div>
-                            </Form>
+                            )}
                         </div>
                     </Card>
                 </div>

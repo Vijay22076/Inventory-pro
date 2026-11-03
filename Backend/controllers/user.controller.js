@@ -141,18 +141,26 @@ const loginUser = asyncHandler(async (req, res, next) => {
         return next(new ApiError(400, "Username or email and password are required"));
     }
 
+    const inputIdentifier = (email || username || "").trim();
+    const lowerIdentifier = inputIdentifier.toLowerCase();
+
     const user = await User.findOne({
-        $or: [{ username }, { email }],
+        $or: [
+            { email: lowerIdentifier },
+            { username: lowerIdentifier },
+            { email: inputIdentifier },
+            { username: inputIdentifier },
+        ],
     });
 
     if (!user) {
-        return next(new ApiError(404, "User does not exist"));
+        return next(new ApiError(404, "User does not exist with this email or username"));
     }
 
-    const isPasswordValid = await user.matchPassword(password);
+    const isPasswordValid = await user.matchPassword(password.trim ? password.trim() : password);
 
     if (!isPasswordValid) {
-        return next(new ApiError(401, "Invalid user credentials"));
+        return next(new ApiError(401, "Invalid user credentials. Please check your password."));
     }
 
     const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(
@@ -408,7 +416,10 @@ const sendVerifyOtp = asyncHandler(async (req, res, next) => {
             .json(
                 new ApiResponse(
                     200,
-                    {},
+                    {
+                        email: user.email,
+                        devOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
+                    },
                     "Verification OTP sent to your email successfully"
                 )
             );
@@ -456,7 +467,10 @@ const sendChangePasswordOtp = asyncHandler(async (req, res, next) => {
             .json(
                 new ApiResponse(
                     200,
-                    {},
+                    {
+                        email: user.email,
+                        devOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
+                    },
                     "Verification OTP sent to your email successfully"
                 )
             );
