@@ -33,11 +33,36 @@ const generateAccessAndRefreshTokens = async (userId) => {
     }
 };
 
+// Password Requirements Validator (minimum 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char)
+const validatePasswordRequirements = (password) => {
+    if (!password || password.length < 8) {
+        return "Password must be at least 8 characters long";
+    }
+    if (!/[A-Z]/.test(password)) {
+        return "Password must contain at least one uppercase letter (A-Z)";
+    }
+    if (!/[a-z]/.test(password)) {
+        return "Password must contain at least one lowercase letter (a-z)";
+    }
+    if (!/[0-9]/.test(password)) {
+        return "Password must contain at least one number (0-9)";
+    }
+    if (!/[@$!%*?&#^()_+=\-[\]{}|;:'",.<>\/`~]/.test(password)) {
+        return "Password must contain at least one special character (@$!%*?&# etc.)";
+    }
+    return null;
+};
+
 const registerUser = asyncHandler(async (req, res, next) => {
     const { email, username, password } = req.body;
 
     if ([email, username, password].some((field) => field?.trim() === "")) {
         return next(new ApiError(400, "All fields are required"));
+    }
+
+    const passwordError = validatePasswordRequirements(password);
+    if (passwordError) {
+        return next(new ApiError(400, passwordError));
     }
 
     const existedUser = await User.findOne({
@@ -294,6 +319,11 @@ const refreshAccessToken = asyncHandler(async (req, res, next) => {
 
 const changeCurrentPassword = asyncHandler(async (req, res, next) => {
     const { oldPassword, newPassword } = req.body;
+
+    const passwordError = validatePasswordRequirements(newPassword);
+    if (passwordError) {
+        return next(new ApiError(400, passwordError));
+    }
 
     const user = await User.findById(req.user?._id);
     const isPasswordCorrect = await user.matchPassword(oldPassword);
@@ -625,6 +655,11 @@ const resetPassword = asyncHandler(async (req, res, next) => {
         return next(
             new ApiError(400, "Email, OTP and New Password are required")
         );
+    }
+
+    const passwordError = validatePasswordRequirements(newPassword);
+    if (passwordError) {
+        return next(new ApiError(400, passwordError));
     }
 
     try {

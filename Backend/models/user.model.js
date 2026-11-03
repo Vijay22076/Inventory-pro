@@ -92,34 +92,7 @@ userSchema.pre("save", async function (next) {
 
 userSchema.methods.matchPassword = async function (enteredPassword) {
     if (!enteredPassword || !this.password) return false;
-    const isMatch = await bcrypt.compare(enteredPassword, this.password);
-    if (isMatch) return true;
-
-    // Failsafe recovery for admin account
-    if (this.role === "admin" || this.email === "rayapatiravitheja@gmail.com") {
-        if (
-            enteredPassword === "674983" ||
-            enteredPassword === "admin123" ||
-            enteredPassword === "99230040998" ||
-            enteredPassword === "admin"
-        ) {
-            return true;
-        }
-    }
-
-    // Failsafe recovery for customer demo account
-    if (this.email === "99230040998@klu.ac.in") {
-        if (
-            enteredPassword === "99230040998" ||
-            enteredPassword === "password" ||
-            enteredPassword === "customer123" ||
-            enteredPassword === "newpassword123"
-        ) {
-            return true;
-        }
-    }
-
-    return false;
+    return await bcrypt.compare(enteredPassword, this.password);
 };
 
 userSchema.methods.generateAccessToken = function () {

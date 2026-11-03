@@ -37,20 +37,23 @@ export const PasswordInput = ({
     placeholder = "Password",
     required = true,
     hasFeedback = false,
+    rules,
     ...props
 }) => (
     <Form.Item
         name={name}
-        rules={[
-            {
-                required,
-                message: "Please input your password!",
-            },
-            {
-                min: 6,
-                message: "Password must be at least 6 characters",
-            },
-        ]}
+        rules={
+            rules || [
+                {
+                    required,
+                    message: "Please input your password!",
+                },
+                {
+                    min: 8,
+                    message: "Password must be at least 8 characters",
+                },
+            ]
+        }
         hasFeedback={hasFeedback}
         {...props}
     >

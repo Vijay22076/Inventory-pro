@@ -39,6 +39,8 @@ import {
 import toast from "react-hot-toast";
 import useAuth from "../../hooks/useAuth";
 import { api } from "../../api/api";
+import PasswordRequirements from "../../components/auth/PasswordRequirements";
+import { validateStrongPassword } from "../../utils/passwordValidator";
 
 const CustomerProfile = () => {
     const { user, refreshUser } = useAuth();
@@ -52,6 +54,7 @@ const CustomerProfile = () => {
 
     // Password & OTP Verification state
     const [passwordForm] = Form.useForm();
+    const watchedNewPassword = Form.useWatch("newPassword", passwordForm) || "";
     const [passwordStep, setPasswordStep] = useState(1); // 1 = input passwords, 2 = confirm OTP
     const [passwordPayload, setPasswordPayload] = useState({ oldPassword: "", newPassword: "" });
     const [otpCode, setOtpCode] = useState("");
@@ -585,21 +588,24 @@ const CustomerProfile = () => {
                                             />
                                         </Form.Item>
 
-                                        <Form.Item
-                                            name="newPassword"
-                                            label={<span className="font-semibold text-slate-700">New Password</span>}
-                                            rules={[
-                                                { required: true, message: "Please enter your new password" },
-                                                { min: 6, message: "New password must be at least 6 characters long" },
-                                            ]}
-                                        >
-                                            <Input.Password
-                                                prefix={<KeyOutlined className="text-slate-400 mr-1" />}
-                                                placeholder="Enter a new strong password (min 6 characters)"
-                                                size="large"
-                                                className="rounded-xl"
-                                            />
-                                        </Form.Item>
+                                        <div>
+                                            <Form.Item
+                                                name="newPassword"
+                                                label={<span className="font-semibold text-slate-700">New Password</span>}
+                                                rules={[
+                                                    { validator: validateStrongPassword },
+                                                ]}
+                                                className="mb-1"
+                                            >
+                                                <Input.Password
+                                                    prefix={<KeyOutlined className="text-slate-400 mr-1" />}
+                                                    placeholder="Enter a new strong password"
+                                                    size="large"
+                                                    className="rounded-xl"
+                                                />
+                                            </Form.Item>
+                                            <PasswordRequirements password={watchedNewPassword} />
+                                        </div>
 
                                         <Form.Item
                                             name="confirmPassword"

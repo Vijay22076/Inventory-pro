@@ -9,6 +9,8 @@ import {
     PasswordInput,
     UsernameInput,
 } from "../../components/auth/FormItems";
+import PasswordRequirements from "../../components/auth/PasswordRequirements";
+import { validateStrongPassword } from "../../utils/passwordValidator";
 import AuthButton from "../../components/auth/AuthButton";
 import AvatarUpload from "../../components/common/AvatarUpload";
 import { api } from "../../api/api";
@@ -18,6 +20,7 @@ const Signup = () => {
     const [loading, setLoading] = useState(false);
     const [avatarFile, setAvatarFile] = useState(null);
     const navigate = useNavigate();
+    const passwordValue = Form.useWatch("password", form) || "";
 
     const handleAvatarChange = (info) => {
         if (info.file.status === "done") {
@@ -80,7 +83,13 @@ const Signup = () => {
                     <div className="space-y-4">
                         <UsernameInput />
                         <EmailInput />
-                        <PasswordInput hasFeedback={true} />
+                        <div>
+                            <PasswordInput
+                                rules={[{ validator: validateStrongPassword }]}
+                                hasFeedback={true}
+                            />
+                            <PasswordRequirements password={passwordValue} />
+                        </div>
                     </div>
 
                     <Form.Item className="mb-0 mt-6">

@@ -9,6 +9,8 @@ import {
     PasswordInput,
     OtpInput,
 } from "../../components/auth/FormItems";
+import PasswordRequirements from "../../components/auth/PasswordRequirements";
+import { isPasswordValid } from "../../utils/passwordValidator";
 import AuthButton from "../../components/auth/AuthButton";
 
 const { Step } = Steps;
@@ -57,6 +59,13 @@ const ResetPassword = () => {
 
         if (!newPassword) {
             message.error("Please enter a new password");
+            return;
+        }
+
+        if (!isPasswordValid(newPassword)) {
+            message.error(
+                "Password must meet all 5 security requirements displayed below"
+            );
             return;
         }
 
@@ -114,12 +123,15 @@ const ResetPassword = () => {
                         onChange={(e) => setOtp(e.target.value)}
                     />
                     <div className="space-y-3">
-                        <PasswordInput
-                            name="newPassword"
-                            placeholder="Enter new password"
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                        />
+                        <div>
+                            <PasswordInput
+                                name="newPassword"
+                                placeholder="Enter new password"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                            />
+                            <PasswordRequirements password={newPassword} />
+                        </div>
                         <PasswordInput
                             name="confirmPassword"
                             placeholder="Confirm new password"
