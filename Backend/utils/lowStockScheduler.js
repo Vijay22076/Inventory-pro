@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import { Product } from "../models/product.model.js";
 import { User } from "../models/user.model.js";
+import { AlertLog } from "../models/alert-log.model.js";
 import transporter from "./nodemailer.js";
 import { ApiError } from "./ApiError.js";
 import { getLowStockAlertEmailTemplate } from "./emailTemplates.js";
@@ -12,55 +13,127 @@ class LowStockScheduler {
     }
 
     // Method to send low stock alerts for a specific user
-    async sendUserLowStockAlert(userId, userEmail, username) {
+    async sendUserLowStockAlert(userId, userEmail, username, isTest = false, triggeredBy = null) {
         try {
-            const lowStockProducts = await Product.find({
+            let lowStockProducts = await Product.find({
                 created_by: userId,
                 $expr: {
                     $lt: ["$stock", { $ifNull: ["$min_threshold", this.threshold] }],
                 },
             })
                 .select(
-                    "product_name product_code stock min_threshold buying_price selling_price"
+                    "product_name product_code stock min_threshold buying_price selling_price category_id"
                 )
                 .populate("category_id", "category_name")
                 .sort({ stock: 1 });
 
+            // If it's a test alert and there are no actual low stock products,
+            // construct sample low stock products so the test email is dispatched!
+            let isSample = false;
+            if (lowStockProducts.length === 0 && isTest) {
+                const sampleProds = await Product.find({ created_by: userId })
+                    .select("product_name product_code stock min_threshold buying_price selling_price category_id")
+                    .populate("category_id", "category_name")
+                    .limit(3);
+
+                if (sampleProds.length > 0) {
+                    lowStockProducts = sampleProds.map((p) => ({
+                        _id: p._id,
+                        product_name: p.product_name,
+                        product_code: p.product_code,
+                        stock: Math.min(p.stock, 3), // simulate low stock
+                        min_threshold: p.min_threshold || 10,
+                        buying_price: p.buying_price,
+                        selling_price: p.selling_price,
+                        category_id: p.category_id,
+                    }));
+                    isSample = true;
+                }
+            }
+
             if (lowStockProducts.length === 0) {
-                console.log(
-                    `No low stock products found for user: ${username}`
-                );
+                console.log(`No low stock products found for user: ${username}`);
+                await AlertLog.create({
+                    trigger_type: isTest ? "manual_test" : "scheduled_cron",
+                    triggered_by: triggeredBy || userId,
+                    recipient_email: userEmail,
+                    recipient_name: username,
+                    products: [],
+                    product_count: 0,
+                    status: "no_low_stock",
+                });
                 return { sent: false, reason: "no_low_stock", count: 0 };
             }
 
             const template = getLowStockAlertEmailTemplate({
-                username,
+                username: username || "Administrator",
                 lowStockProducts,
                 threshold: this.threshold,
             });
 
+            const subject = isTest
+                ? `[TEST ALERT] ⚠️ Low Stock Notice - ${lowStockProducts.length} Items Require Restocking`
+                : template.subject;
+
             const mailOptions = {
-                from: `"InventoryPro" <${process.env.SENDER_EMAIL || process.env.EMAIL_USER}>`,
+                from: `"InventoryPro Alert" <${process.env.SENDER_EMAIL || process.env.EMAIL_USER}>`,
                 to: userEmail,
                 ...template,
+                subject,
             };
 
-            await transporter.sendMail(mailOptions);
+            const mailRes = await transporter.sendMail(mailOptions);
             console.log(
-                `Low stock alert sent to ${username} (${userEmail}) - ${lowStockProducts.length} products`
+                `Low stock alert sent to ${username} (${userEmail}) - ${lowStockProducts.length} products (MessageId: ${mailRes?.messageId})`
             );
+
+            // Log to database
+            const mappedProducts = lowStockProducts.map((p) => ({
+                product_id: p._id,
+                product_name: p.product_name,
+                product_code: p.product_code,
+                stock: p.stock,
+                min_threshold: p.min_threshold || 10,
+                category_name: p.category_id?.category_name || "General",
+            }));
+
+            await AlertLog.create({
+                trigger_type: isTest ? "manual_test" : "scheduled_cron",
+                triggered_by: triggeredBy || userId,
+                recipient_email: userEmail,
+                recipient_name: username,
+                products: mappedProducts,
+                product_count: mappedProducts.length,
+                status: "sent",
+                message_id: mailRes?.messageId || "sent",
+            });
 
             return {
                 sent: true,
                 count: lowStockProducts.length,
                 email: userEmail,
                 username: username,
+                messageId: mailRes?.messageId,
+                products: mappedProducts,
+                isSample,
             };
         } catch (error) {
             console.error(
                 `Error sending low stock alert to ${username}:`,
                 error
             );
+
+            await AlertLog.create({
+                trigger_type: isTest ? "manual_test" : "scheduled_cron",
+                triggered_by: triggeredBy || userId,
+                recipient_email: userEmail,
+                recipient_name: username,
+                products: [],
+                product_count: 0,
+                status: "failed",
+                error: error.message,
+            });
+
             return {
                 sent: false,
                 reason: "email_error",
@@ -72,17 +145,18 @@ class LowStockScheduler {
     }
 
     // Method to send alerts to all users
-    async sendAllUsersLowStockAlerts() {
+    async sendAllUsersLowStockAlerts(isTest = false, triggeredBy = null) {
         try {
-            console.log("🔄 Starting weekly low stock alert process...");
+            console.log("🔄 Starting low stock alert process...");
 
-            // Get all users with email addresses
+            // Get all admin and manager users with email addresses
             const users = await User.find({
                 email: { $exists: true, $ne: null, $ne: "" },
+                role: { $in: ["admin", "manager"] },
             }).select("_id username email role");
 
             if (users.length === 0) {
-                console.log("❌ No users with email addresses found");
+                console.log("❌ No admin/manager users with email addresses found");
                 return { success: false, message: "No users with email found" };
             }
 
@@ -99,7 +173,9 @@ class LowStockScheduler {
                 const result = await this.sendUserLowStockAlert(
                     user._id,
                     user.email,
-                    user.username
+                    user.username,
+                    isTest,
+                    triggeredBy
                 );
 
                 results.details.push({
@@ -117,8 +193,7 @@ class LowStockScheduler {
                     results.failed++;
                 }
 
-                // Add small delay between emails to avoid overwhelming the email service
-                await new Promise((resolve) => setTimeout(resolve, 1000));
+                await new Promise((resolve) => setTimeout(resolve, 800));
             }
 
             console.log(`✅ Low stock alert process completed:
@@ -142,16 +217,15 @@ class LowStockScheduler {
         }
 
         // Schedule to run every Monday at 9:00 AM
-        // Format: second minute hour day month dayOfWeek
         this.cronJob = cron.schedule(
             "0 0 9 * * 1",
             async () => {
                 console.log("⏰ Weekly low stock alert cron job triggered");
-                await this.sendAllUsersLowStockAlerts();
+                await this.sendAllUsersLowStockAlerts(false, null);
             },
             {
                 scheduled: false,
-                timezone: process.env.TIMEZONE || "Asia/Kolkata", // Adjust according to your timezone
+                timezone: process.env.TIMEZONE || "Asia/Kolkata",
             }
         );
 
@@ -173,9 +247,9 @@ class LowStockScheduler {
     }
 
     // Manual trigger for testing
-    async triggerManually() {
+    async triggerManually(isTest = true, triggeredBy = null) {
         console.log("🧪 Manually triggering low stock alerts for testing...");
-        return await this.sendAllUsersLowStockAlerts();
+        return await this.sendAllUsersLowStockAlerts(isTest, triggeredBy);
     }
 
     // Update threshold

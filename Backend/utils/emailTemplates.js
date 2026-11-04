@@ -1241,3 +1241,347 @@ export const getAdminNewOrderAlertEmailTemplate = ({
         }),
     };
 };
+
+/**
+ * 12. Customer Return Request Confirmation Email Template
+ * Trigger: Customer submits a return request for an order
+ * Recipient: Customer
+ */
+export const getCustomerReturnConfirmationEmailTemplate = ({
+    username,
+    return_no,
+    invoice_no,
+    reason,
+    notes,
+    items = [],
+    warehouse_name = "",
+    portalUrl,
+}) => {
+    const safeUsername = escapeHtml(username || "Valued Customer");
+    const safeReturnNo = escapeHtml(return_no || "N/A");
+    const safeInvoiceNo = escapeHtml(invoice_no || "N/A");
+    const safeReason = escapeHtml(reason || "Not specified");
+    const safeNotes = escapeHtml(notes || "");
+    const safeWhName = escapeHtml(warehouse_name || "Central Fulfillment Hub");
+    const targetUrl = portalUrl || `${DEFAULT_FRONTEND_URL}/customer/returns`;
+
+    const itemsRows = (items || []).map((it, idx) => {
+        const bg = idx % 2 === 0 ? EMAIL_PALETTE.bgCard : EMAIL_PALETTE.bgAlt;
+        const name = escapeHtml(it.product_name || "Returned Item");
+        const code = escapeHtml(it.product_code || "—");
+        const image = it.product_image && String(it.product_image).startsWith("http") ? it.product_image : null;
+        const qty = escapeHtml(it.quantity || 1);
+        const price = Number(it.unit_price || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" });
+
+        return `
+            <tr bgcolor="${bg}" style="background-color: ${bg}; border-bottom: 1px solid ${EMAIL_PALETTE.borderColor};">
+                <td style="padding: 10px 14px; font-size: 13px; color: ${EMAIL_PALETTE.textPrimary};">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                        <tr>
+                            ${image ? `
+                            <td style="padding-right: 10px; vertical-align: middle;">
+                                <img src="${image}" alt="${name}" width="38" height="38" style="width: 38px; height: 38px; object-fit: cover; border-radius: 6px; border: 1px solid ${EMAIL_PALETTE.borderColor}; display: block;" />
+                            </td>
+                            ` : ""}
+                            <td style="vertical-align: middle;">
+                                <div style="font-weight: 700; color: ${EMAIL_PALETTE.textPrimary};">${name}</div>
+                                ${code ? `<div style="font-family: 'Courier New', Courier, monospace; font-size: 11px; color: ${EMAIL_PALETTE.textMuted};">SKU: ${code}</div>` : ""}
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                <td align="center" style="padding: 10px 14px; font-size: 13px; font-weight: 700; color: ${EMAIL_PALETTE.textPrimary}; text-align: center;">${qty}</td>
+                <td align="right" style="padding: 10px 14px; font-size: 13px; color: ${EMAIL_PALETTE.textSecondary}; text-align: right;">${price}</td>
+            </tr>
+        `;
+    }).join("");
+
+    const content = `
+        <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                    <td>
+                        <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #15803d; display: block; margin-bottom: 4px;">
+                            RETURN REQUEST INITIATED
+                        </span>
+                        <h2 style="margin: 0; font-size: 18px; font-weight: 800; color: #166534;">
+                            Return #${safeReturnNo}
+                        </h2>
+                    </td>
+                    <td align="right" style="text-align: right;">
+                        <span style="display: inline-block; background-color: #dcfce7; color: #15803d; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 6px;">
+                            Under Review
+                        </span>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <p style="margin: 0 0 16px 0; font-size: 16px; color: ${EMAIL_PALETTE.textSecondary};">
+            Dear <strong>${safeUsername}</strong>,
+        </p>
+
+        <p style="margin: 0 0 20px 0; font-size: 15px; line-height: 1.6; color: ${EMAIL_PALETTE.textSecondary};">
+            We have received your return request for Order <strong>#${safeInvoiceNo}</strong>. Our inventory inspection team is currently reviewing your request.
+        </p>
+
+        <!-- Return Meta Card -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 20px; background-color: ${EMAIL_PALETTE.bgAlt}; border: 1px solid ${EMAIL_PALETTE.borderColor}; border-radius: 8px; padding: 14px 16px;">
+            <tr>
+                <td width="50%" valign="top">
+                    <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: ${EMAIL_PALETTE.textMuted}; margin-bottom: 4px;">
+                        Reason for Return
+                    </div>
+                    <div style="font-size: 13px; font-weight: 700; color: ${EMAIL_PALETTE.textPrimary};">
+                        ${safeReason}
+                    </div>
+                </td>
+                <td width="50%" valign="top">
+                    <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: ${EMAIL_PALETTE.textMuted}; margin-bottom: 4px;">
+                        Fulfillment Facility
+                    </div>
+                    <div style="font-size: 13px; font-weight: 600; color: ${EMAIL_PALETTE.textPrimary};">
+                        ${safeWhName}
+                    </div>
+                </td>
+            </tr>
+            ${safeNotes ? `
+            <tr>
+                <td colspan="2" style="padding-top: 10px; border-top: 1px dashed ${EMAIL_PALETTE.borderColor}; margin-top: 10px;">
+                    <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: ${EMAIL_PALETTE.textMuted}; margin-bottom: 2px;">
+                        Customer Comments
+                    </div>
+                    <div style="font-size: 12px; color: ${EMAIL_PALETTE.textSecondary}; font-style: italic;">
+                        "${safeNotes}"
+                    </div>
+                </td>
+            </tr>
+            ` : ""}
+        </table>
+
+        <!-- Items Table -->
+        <p style="margin: 0 0 10px 0; font-size: 14px; font-weight: 700; color: ${EMAIL_PALETTE.textPrimary};">
+            Items to Return:
+        </p>
+        <div style="border: 1px solid ${EMAIL_PALETTE.borderColor}; border-radius: 8px; overflow: hidden; margin-bottom: 24px;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="text-align: left; border-collapse: collapse;">
+                <thead>
+                    <tr bgcolor="${EMAIL_PALETTE.bgAlt}" style="background-color: ${EMAIL_PALETTE.bgAlt}; border-bottom: 1px solid ${EMAIL_PALETTE.borderColor};">
+                        <th style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: ${EMAIL_PALETTE.textSecondary}; text-transform: uppercase;">Product</th>
+                        <th style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: ${EMAIL_PALETTE.textSecondary}; text-transform: uppercase; text-align: center;">Qty</th>
+                        <th style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: ${EMAIL_PALETTE.textSecondary}; text-transform: uppercase; text-align: right;">Price</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${itemsRows}
+                </tbody>
+            </table>
+        </div>
+
+        <div style="background-color: #f8fafc; border-left: 4px solid #6366f1; border-radius: 6px; padding: 12px 16px; margin-bottom: 24px;">
+            <p style="margin: 0 0 4px 0; font-size: 13px; font-weight: 700; color: #1e293b;">
+                What happens next?
+            </p>
+            <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #475569;">
+                Our warehouse team will inspect your return request within 24–48 hours. Once approved, you will receive an update email with item drop-off/pickup instructions and automated refund status.
+            </p>
+        </div>
+
+        ${renderBulletproofButton("Track Return Status in Portal", targetUrl)}
+
+        <div style="border-top: 1px solid ${EMAIL_PALETTE.borderColor}; padding-top: 18px; margin-top: 24px;">
+            <p style="margin: 0 0 4px 0; font-size: 14px; color: ${EMAIL_PALETTE.textSecondary}; font-weight: 600;">
+                Best regards,
+            </p>
+            <p style="margin: 0; font-size: 14px; color: ${EMAIL_PALETTE.textPrimary}; font-weight: 700;">
+                ${escapeHtml(BRAND_NAME)} Customer Support & Returns
+            </p>
+        </div>
+    `;
+
+    return {
+        subject: `Return Request Received - #${return_no} (Order #${invoice_no}) – ${BRAND_NAME}`,
+        text: `Dear ${safeUsername},\n\nWe have received your return request #${return_no} for Order #${invoice_no}.\nReason: ${safeReason}\n\nTrack status: ${targetUrl}\n\nBest regards,\n${BRAND_NAME} Team`,
+        html: baseEmailWrapper({
+            content,
+            previewText: `Return request #${return_no} received for Order #${invoice_no}`,
+            categoryTag: "Return confirmation",
+        }),
+    };
+};
+
+/**
+ * 13. Admin New Return Request Alert Email Template
+ * Trigger: Customer submits a return request
+ * Recipient: Admin(s)
+ */
+export const getAdminNewReturnAlertEmailTemplate = ({
+    admin_name,
+    customer_name,
+    customer_email,
+    customer_phone,
+    return_no,
+    invoice_no,
+    reason,
+    notes,
+    items = [],
+    warehouse_name = "",
+    adminPortalUrl,
+}) => {
+    const safeAdminName = escapeHtml(admin_name || "Admin");
+    const safeCustomerName = escapeHtml(customer_name || "Customer");
+    const safeCustomerEmail = escapeHtml(customer_email || "N/A");
+    const safeCustomerPhone = escapeHtml(customer_phone || "N/A");
+    const safeReturnNo = escapeHtml(return_no || "N/A");
+    const safeInvoiceNo = escapeHtml(invoice_no || "N/A");
+    const safeReason = escapeHtml(reason || "Not specified");
+    const safeNotes = escapeHtml(notes || "");
+    const safeWhName = escapeHtml(warehouse_name || "Central Fulfillment Hub");
+    const targetUrl = adminPortalUrl || `${DEFAULT_FRONTEND_URL}/returns`;
+
+    const itemsRows = (items || []).map((it, idx) => {
+        const bg = idx % 2 === 0 ? EMAIL_PALETTE.bgCard : EMAIL_PALETTE.bgAlt;
+        const name = escapeHtml(it.product_name || "Returned Item");
+        const code = escapeHtml(it.product_code || "—");
+        const image = it.product_image && String(it.product_image).startsWith("http") ? it.product_image : null;
+        const qty = escapeHtml(it.quantity || 1);
+        const price = Number(it.unit_price || 0).toLocaleString("en-IN", { style: "currency", currency: "INR" });
+        const lineTotal = Number((it.quantity || 1) * (it.unit_price || 0)).toLocaleString("en-IN", { style: "currency", currency: "INR" });
+
+        return `
+            <tr bgcolor="${bg}" style="background-color: ${bg}; border-bottom: 1px solid ${EMAIL_PALETTE.borderColor};">
+                <td style="padding: 10px 14px; font-size: 13px; color: ${EMAIL_PALETTE.textPrimary};">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                        <tr>
+                            ${image ? `
+                            <td style="padding-right: 10px; vertical-align: middle;">
+                                <img src="${image}" alt="${name}" width="38" height="38" style="width: 38px; height: 38px; object-fit: cover; border-radius: 6px; border: 1px solid ${EMAIL_PALETTE.borderColor}; display: block;" />
+                            </td>
+                            ` : ""}
+                            <td style="vertical-align: middle;">
+                                <div style="font-weight: 700; color: ${EMAIL_PALETTE.textPrimary};">${name}</div>
+                                ${code ? `<div style="font-family: 'Courier New', Courier, monospace; font-size: 11px; color: ${EMAIL_PALETTE.textMuted};">SKU: ${code}</div>` : ""}
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                <td align="center" style="padding: 10px 14px; font-size: 13px; font-weight: 700; color: ${EMAIL_PALETTE.textPrimary}; text-align: center;">${qty}</td>
+                <td align="right" style="padding: 10px 14px; font-size: 13px; color: ${EMAIL_PALETTE.textSecondary}; text-align: right;">${price}</td>
+                <td align="right" style="padding: 10px 14px; font-size: 13px; font-weight: 700; color: ${EMAIL_PALETTE.textPrimary}; text-align: right;">${lineTotal}</td>
+            </tr>
+        `;
+    }).join("");
+
+    const content = `
+        <div style="background-color: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                    <td>
+                        <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #c2410c; display: block; margin-bottom: 4px;">
+                            ADMIN NOTIFICATION • NEW RETURN REQUEST
+                        </span>
+                        <h2 style="margin: 0; font-size: 18px; font-weight: 800; color: #9a3412;">
+                            Return #${safeReturnNo}
+                        </h2>
+                    </td>
+                    <td align="right" style="text-align: right;">
+                        <span style="display: inline-block; background-color: #ffedd5; color: #c2410c; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 6px;">
+                            Action Required
+                        </span>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <p style="margin: 0 0 16px 0; font-size: 15px; color: ${EMAIL_PALETTE.textSecondary}; line-height: 1.6;">
+            A customer has submitted a new product return request on <strong>${escapeHtml(BRAND_NAME)}</strong>. Details of the customer, order, and requested items are shown below:
+        </p>
+
+        <!-- Customer & Order Meta Grid -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom: 20px;">
+            <tr>
+                <td width="48%" valign="top" style="background-color: ${EMAIL_PALETTE.bgAlt}; border: 1px solid ${EMAIL_PALETTE.borderColor}; border-radius: 8px; padding: 14px 16px;">
+                    <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: ${EMAIL_PALETTE.textMuted}; margin-bottom: 6px;">
+                        👤 Customer Details
+                    </div>
+                    <div style="font-size: 14px; font-weight: 700; color: ${EMAIL_PALETTE.textPrimary}; margin-bottom: 4px;">
+                        ${safeCustomerName}
+                    </div>
+                    <div style="font-size: 12px; color: ${EMAIL_PALETTE.textSecondary}; margin-bottom: 2px;">
+                        📧 ${safeCustomerEmail}
+                    </div>
+                    <div style="font-size: 12px; color: ${EMAIL_PALETTE.textSecondary};">
+                        📞 ${safeCustomerPhone}
+                    </div>
+                </td>
+                <td width="4%"></td>
+                <td width="48%" valign="top" style="background-color: ${EMAIL_PALETTE.bgAlt}; border: 1px solid ${EMAIL_PALETTE.borderColor}; border-radius: 8px; padding: 14px 16px;">
+                    <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: ${EMAIL_PALETTE.textMuted}; margin-bottom: 6px;">
+                        📦 Order & Warehouse
+                    </div>
+                    <div style="font-size: 14px; font-weight: 700; color: ${EMAIL_PALETTE.textPrimary}; margin-bottom: 4px;">
+                        Order #${safeInvoiceNo}
+                    </div>
+                    <div style="font-size: 12px; color: ${EMAIL_PALETTE.textSecondary}; margin-bottom: 2px;">
+                        Facility: <strong>${safeWhName}</strong>
+                    </div>
+                    <div style="font-size: 12px; color: #c2410c; font-weight: 600;">
+                        Reason: ${safeReason}
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        ${safeNotes ? `
+        <div style="background-color: #f8fafc; border: 1px solid ${EMAIL_PALETTE.borderColor}; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px;">
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: ${EMAIL_PALETTE.textMuted}; margin-bottom: 4px;">
+                Customer Notes / Explanation
+            </div>
+            <div style="font-size: 13px; color: ${EMAIL_PALETTE.textPrimary}; line-height: 1.5;">
+                "${safeNotes}"
+            </div>
+        </div>
+        ` : ""}
+
+        <!-- Items Table -->
+        <p style="margin: 0 0 10px 0; font-size: 14px; font-weight: 700; color: ${EMAIL_PALETTE.textPrimary};">
+            Requested Return Item(s):
+        </p>
+        <div style="border: 1px solid ${EMAIL_PALETTE.borderColor}; border-radius: 8px; overflow: hidden; margin-bottom: 24px;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="text-align: left; border-collapse: collapse;">
+                <thead>
+                    <tr bgcolor="${EMAIL_PALETTE.bgAlt}" style="background-color: ${EMAIL_PALETTE.bgAlt}; border-bottom: 1px solid ${EMAIL_PALETTE.borderColor};">
+                        <th style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: ${EMAIL_PALETTE.textSecondary}; text-transform: uppercase;">Product</th>
+                        <th style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: ${EMAIL_PALETTE.textSecondary}; text-transform: uppercase; text-align: center;">Qty</th>
+                        <th style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: ${EMAIL_PALETTE.textSecondary}; text-transform: uppercase; text-align: right;">Unit Price</th>
+                        <th style="padding: 10px 14px; font-size: 12px; font-weight: 700; color: ${EMAIL_PALETTE.textSecondary}; text-transform: uppercase; text-align: right;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${itemsRows}
+                </tbody>
+            </table>
+        </div>
+
+        ${renderBulletproofButton("Review & Process Return in Admin Portal", targetUrl)}
+
+        <div style="border-top: 1px solid ${EMAIL_PALETTE.borderColor}; padding-top: 18px; margin-top: 24px;">
+            <p style="margin: 0 0 4px 0; font-size: 14px; color: ${EMAIL_PALETTE.textSecondary}; font-weight: 600;">
+                Best regards,
+            </p>
+            <p style="margin: 0; font-size: 14px; color: ${EMAIL_PALETTE.textPrimary}; font-weight: 700;">
+                ${escapeHtml(BRAND_NAME)} Returns & RMA Processing System
+            </p>
+        </div>
+    `;
+
+    return {
+        subject: `⚠️ New Customer Return Request – #${return_no} (Order #${invoice_no}) – ${BRAND_NAME}`,
+        text: `New customer return request #${return_no} submitted by ${safeCustomerName} (${safeCustomerEmail}) for Order #${invoice_no}.\nReason: ${safeReason}\n\nReview in Admin Portal: ${targetUrl}\n\nInventoryPro Returns System`,
+        html: baseEmailWrapper({
+            content,
+            previewText: `New return request #${return_no} submitted by ${safeCustomerName} for Order #${invoice_no}`,
+            categoryTag: "Admin return alert",
+        }),
+    };
+};

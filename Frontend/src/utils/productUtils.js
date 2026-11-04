@@ -92,12 +92,18 @@ export const validateProductData = (productData) => {
     return { isValid, errors };
 };
 
-export const prepareProductFormData = (formValues, imageFile = null) => {
+export const prepareProductFormData = (
+    formValues,
+    imageFiles = null,
+    existingImages = []
+) => {
     const formData = new FormData();
 
     Object.keys(formValues).forEach((key) => {
         if (
             key !== "product_image" &&
+            key !== "product_images" &&
+            key !== "existing_images" &&
             formValues[key] !== undefined &&
             formValues[key] !== null
         ) {
@@ -105,8 +111,27 @@ export const prepareProductFormData = (formValues, imageFile = null) => {
         }
     });
 
-    if (imageFile) {
-        formData.append("product_image", imageFile);
+    // Handle uploaded file(s)
+    if (imageFiles) {
+        if (Array.isArray(imageFiles)) {
+            imageFiles.forEach((file) => {
+                if (file) {
+                    formData.append("product_images", file);
+                }
+            });
+            // If single file or first file, also append product_image for backwards compatibility
+            if (imageFiles[0]) {
+                formData.append("product_image", imageFiles[0]);
+            }
+        } else {
+            formData.append("product_images", imageFiles);
+            formData.append("product_image", imageFiles);
+        }
+    }
+
+    // Pass retained existing image URLs (as JSON string)
+    if (Array.isArray(existingImages) && existingImages.length > 0) {
+        formData.append("existing_images", JSON.stringify(existingImages));
     }
 
     return formData;

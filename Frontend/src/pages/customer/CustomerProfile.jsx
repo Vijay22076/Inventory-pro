@@ -60,7 +60,6 @@ const CustomerProfile = () => {
     const [otpCode, setOtpCode] = useState("");
     const [sendingOtp, setSendingOtp] = useState(false);
     const [verifyingOtp, setVerifyingOtp] = useState(false);
-    const [devOtpHint, setDevOtpHint] = useState("");
     const [resendTimer, setResendTimer] = useState(0);
 
     // Add Address Modal state
@@ -123,19 +122,18 @@ const CustomerProfile = () => {
     const handleRequestPasswordOtp = async (values) => {
         try {
             setSendingOtp(true);
-            const response = await api.post("/users/send-change-password-otp");
+            const response = await api.post("/users/send-change-password-otp", {
+                oldPassword: values.oldPassword,
+            });
 
             if (response.data.success) {
                 setPasswordPayload({
                     oldPassword: values.oldPassword,
                     newPassword: values.newPassword,
                 });
-                if (response.data.data?.devOtp) {
-                    setDevOtpHint(response.data.data.devOtp);
-                }
                 setPasswordStep(2);
                 setResendTimer(30);
-                toast.success(`Verification OTP sent to ${user?.email || "your email"}! Please enter the code below.`);
+                toast.success(`Verification OTP sent to ${user?.email || "your email"}! Please check your inbox.`);
             }
         } catch (err) {
             toast.error(err.response?.data?.message || "Failed to dispatch verification OTP email");
@@ -149,11 +147,10 @@ const CustomerProfile = () => {
         if (resendTimer > 0) return;
         try {
             setSendingOtp(true);
-            const response = await api.post("/users/send-change-password-otp");
+            const response = await api.post("/users/send-change-password-otp", {
+                oldPassword: passwordPayload.oldPassword,
+            });
             if (response.data.success) {
-                if (response.data.data?.devOtp) {
-                    setDevOtpHint(response.data.data.devOtp);
-                }
                 setResendTimer(30);
                 toast.success("A fresh verification OTP has been sent to your email!");
             }
@@ -195,7 +192,6 @@ const CustomerProfile = () => {
                 passwordForm.resetFields();
                 setOtpCode("");
                 setPasswordPayload({ oldPassword: "", newPassword: "" });
-                setDevOtpHint("");
                 setPasswordStep(1);
             }
         } catch (err) {
@@ -683,15 +679,6 @@ const CustomerProfile = () => {
                                             Enter the code below to finalize your new password.
                                         </p>
                                     </div>
-
-                                    {devOtpHint && (
-                                        <div className="p-3 bg-indigo-100/70 border border-indigo-200 rounded-xl flex items-center justify-between text-xs text-indigo-900">
-                                            <span>Fast Verification Code (Dev Preview):</span>
-                                            <span className="font-mono font-bold text-sm bg-white px-2 py-0.5 rounded text-indigo-700 shadow-2xs">
-                                                {devOtpHint}
-                                            </span>
-                                        </div>
-                                    )}
 
                                     <div className="space-y-2 max-w-sm">
                                         <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600">

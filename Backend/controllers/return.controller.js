@@ -3,13 +3,18 @@ import { Order } from "../models/order.model.js";
 import { OrderDetail } from "../models/order-detail.model.js";
 import { WarehouseStock } from "../models/warehouse-stock.model.js";
 import { StockLedger } from "../models/stock-ledger.model.js";
+import { User } from "../models/user.model.js";
 import { warehouseService } from "../services/warehouse.service.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import mongoose from "mongoose";
 import transporter from "../utils/nodemailer.js";
-import { getReturnStatusUpdateEmailTemplate } from "../utils/emailTemplates.js";
+import {
+    getReturnStatusUpdateEmailTemplate,
+    getCustomerReturnConfirmationEmailTemplate,
+    getAdminNewReturnAlertEmailTemplate,
+} from "../utils/emailTemplates.js";
 import { getRazorpayInstance } from "./payment.controller.js";
 
 // Customer submits a return request for their own order
@@ -63,6 +68,9 @@ const submitReturnRequest = asyncHandler(async (req, res, next) => {
             status: "pending",
             created_by: req.user._id,
         });
+
+        // Asynchronously dispatch email alerts to both Customer and Admin
+        sendReturnCreationEmails(returnReq._id);
 
         return res
             .status(201)
@@ -325,6 +333,120 @@ const updateReturnStatus = asyncHandler(async (req, res, next) => {
         return next(new ApiError(500, err.message));
     }
 });
+
+// Helper: send return request creation email alerts to customer and admin
+const sendReturnCreationEmails = async (returnId) => {
+    try {
+        const returnReq = await ReturnRequest.findById(returnId)
+            .populate({
+                path: "order_id",
+                select: "invoice_no order_date total warehouse_id customer_id customer_user_id shipping_address",
+                populate: [
+                    { path: "customer_id", select: "name email phone username" },
+                    { path: "warehouse_id", select: "warehouse_name warehouse_code" },
+                ],
+            })
+            .populate("customer_id", "username email phone name")
+            .populate("items.product_id", "product_name product_code product_image selling_price unitcost")
+            .populate("warehouse_id", "warehouse_name warehouse_code");
+
+        if (!returnReq) return;
+
+        const customer = returnReq.customer_id || returnReq.order_id?.customer_id;
+        const customerEmail = customer?.email;
+        const customerName = customer?.name || customer?.username || "Valued Customer";
+        const customerPhone = customer?.phone || "N/A";
+        const invoiceNo = returnReq.order_id?.invoice_no || "N/A";
+        const warehouseName =
+            returnReq.warehouse_id?.warehouse_name ||
+            returnReq.order_id?.warehouse_id?.warehouse_name ||
+            "Central Fulfillment Hub";
+
+        const items = (returnReq.items || []).map((it) => ({
+            product_name: it.product_id?.product_name || "Returned Item",
+            product_code: it.product_id?.product_code || "—",
+            product_image: it.product_id?.product_image || null,
+            quantity: it.quantity || 1,
+            unit_price: it.product_id?.selling_price || it.product_id?.unitcost || 0,
+            reason: it.reason || returnReq.reason,
+        }));
+
+        // 1. Dispatch confirmation email to Customer
+        if (customerEmail && customerEmail.includes("@")) {
+            try {
+                const customerTemplate = getCustomerReturnConfirmationEmailTemplate({
+                    username: customerName,
+                    return_no: returnReq.return_no,
+                    invoice_no: invoiceNo,
+                    reason: returnReq.reason,
+                    notes: returnReq.admin_notes,
+                    items,
+                    warehouse_name: warehouseName,
+                    portalUrl: `${process.env.FRONTEND_URL || "http://localhost:5173"}/customer/returns`,
+                });
+
+                await transporter.sendMail({
+                    from: `"InventoryPro Returns" <${process.env.SENDER_EMAIL || process.env.EMAIL_USER}>`,
+                    to: customerEmail,
+                    ...customerTemplate,
+                });
+                console.log(
+                    `📧 Customer return confirmation email sent to ${customerEmail} (Return #${returnReq.return_no})`
+                );
+            } catch (custErr) {
+                console.warn(`⚠️ Failed sending customer return confirmation email:`, custErr.message);
+            }
+        }
+
+        // 2. Dispatch alert email to Admin(s)
+        try {
+            const adminUsers = await User.find({ role: "admin" }).select("email username name");
+            const adminEmails = new Set();
+            adminUsers.forEach((admin) => {
+                if (admin.email && admin.email.includes("@")) {
+                    adminEmails.add(admin.email.trim().toLowerCase());
+                }
+            });
+            if (process.env.ADMIN_EMAIL && process.env.ADMIN_EMAIL.includes("@")) {
+                adminEmails.add(process.env.ADMIN_EMAIL.trim().toLowerCase());
+            }
+            if (adminEmails.size === 0 && (process.env.SENDER_EMAIL || process.env.EMAIL_USER)) {
+                adminEmails.add((process.env.SENDER_EMAIL || process.env.EMAIL_USER).trim().toLowerCase());
+            }
+
+            if (adminEmails.size > 0) {
+                const adminTemplate = getAdminNewReturnAlertEmailTemplate({
+                    admin_name: "Admin",
+                    customer_name: customerName,
+                    customer_email: customerEmail || "N/A",
+                    customer_phone: customerPhone,
+                    return_no: returnReq.return_no,
+                    invoice_no: invoiceNo,
+                    reason: returnReq.reason,
+                    notes: returnReq.admin_notes,
+                    items,
+                    warehouse_name: warehouseName,
+                    adminPortalUrl: `${process.env.FRONTEND_URL || "http://localhost:5173"}/returns`,
+                });
+
+                for (const adminTo of Array.from(adminEmails)) {
+                    await transporter.sendMail({
+                        from: `"InventoryPro Return Alerts" <${process.env.SENDER_EMAIL || process.env.EMAIL_USER}>`,
+                        to: adminTo,
+                        ...adminTemplate,
+                    });
+                    console.log(
+                        `📧 Admin return alert sent to ${adminTo} for Return #${returnReq.return_no} (Order #${invoiceNo})`
+                    );
+                }
+            }
+        } catch (adminErr) {
+            console.warn(`⚠️ Failed sending admin return alert email:`, adminErr.message);
+        }
+    } catch (err) {
+        console.warn(`⚠️ Error in sendReturnCreationEmails:`, err.message);
+    }
+};
 
 // Helper: send customer return status notification email
 const sendReturnNotificationEmail = async (returnId) => {

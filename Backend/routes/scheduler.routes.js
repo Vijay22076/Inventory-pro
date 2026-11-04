@@ -6,6 +6,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import { verifyJWT } from "../middleware/auth.middleware.js";
 import { isAdmin } from "../middleware/admin.middleware.js";
 import lowStockScheduler from "../utils/lowStockScheduler.js";
+import { AlertLog } from "../models/alert-log.model.js";
 
 const router = express.Router();
 
@@ -34,7 +35,7 @@ router.post(
     "/trigger-alerts",
     isAdmin,
     asyncHandler(async (req, res) => {
-        const result = await lowStockScheduler.triggerManually();
+        const result = await lowStockScheduler.triggerManually(true, req.user._id);
 
         if (result.success) {
             return res
@@ -49,6 +50,21 @@ router.post(
         } else {
             throw new ApiError(500, result.error || "Failed to trigger alerts");
         }
+    })
+);
+
+// Get alert logs / history (admin & manager)
+router.get(
+    "/logs",
+    asyncHandler(async (req, res) => {
+        const logs = await AlertLog.find({})
+            .sort({ createdAt: -1 })
+            .limit(50)
+            .populate("triggered_by", "username email");
+
+        return res
+            .status(200)
+            .json(new ApiResponse(200, logs, "Alert logs retrieved successfully"));
     })
 );
 

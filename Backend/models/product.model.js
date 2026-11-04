@@ -52,6 +52,10 @@ const productSchema = mongoose.Schema(
             required: true,
             default: "default-product.png",
         },
+        product_images: {
+            type: [String],
+            default: [],
+        },
         created_by: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "User",
@@ -66,6 +70,17 @@ const productSchema = mongoose.Schema(
 );
 
 productSchema.index({ product_code: 1, created_by: 1 }, { unique: true });
+
+productSchema.pre("save", function (next) {
+    if (this.product_images && this.product_images.length > 0) {
+        if (!this.product_image || this.product_image === "default-product.png") {
+            this.product_image = this.product_images[0];
+        }
+    } else if (this.product_image && this.product_image !== "default-product.png") {
+        this.product_images = [this.product_image];
+    }
+    next();
+});
 
 productSchema.statics.createProduct = async function (productData, session) {
     const [product] = await this.create(
@@ -179,6 +194,7 @@ productSchema.statics.getProductsWithDetails = async function () {
                 selling_price: 1,
                 stock: 1,
                 product_image: 1,
+                product_images: 1,
                 category_name: "$category.category_name",
                 unit_name: "$unit.unit_name",
                 created_by: 1,
@@ -219,6 +235,7 @@ productSchema.statics.getProductsWithDetailsByUser = async function (userId) {
                 selling_price: 1,
                 stock: 1,
                 product_image: 1,
+                product_images: 1,
                 category_name: "$category.category_name",
                 unit_name: "$unit.unit_name",
                 created_by: 1,

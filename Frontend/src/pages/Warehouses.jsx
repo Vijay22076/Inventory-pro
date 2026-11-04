@@ -616,6 +616,7 @@ const Warehouses = () => {
                     transfer_out: { color: "geekblue", label: "Transfer Outbound" },
                     adjustment_add: { color: "cyan", label: "Adjustment (+)" },
                     adjustment_deduct: { color: "volcano", label: "Adjustment (-)" },
+                    adjustment_sub: { color: "volcano", label: "Adjustment (-)" },
                     purchase_return: { color: "magenta", label: "Purchase Return" },
                 };
                 const conf = map[type] || { color: "default", label: type };

@@ -27,13 +27,13 @@ router
 // Internal Product Management (Contains cost & warehouse distribution) - Admin & Manager only
 router
     .route("/")
-    .post(requireRole("admin", "manager"), upload.single("product_image"), createProduct)
+    .post(requireRole("admin", "manager"), upload.any(), createProduct)
     .get(requireRole("admin", "manager"), getAllProducts);
 
 router
     .route("/:id")
-    .patch(requireRole("admin", "manager"), upload.single("product_image"), updateProduct)
-    .put(requireRole("admin", "manager"), upload.single("product_image"), updateProduct)
+    .patch(requireRole("admin", "manager"), upload.any(), updateProduct)
+    .put(requireRole("admin", "manager"), upload.any(), updateProduct)
     .delete(requireRole("admin", "manager"), deleteProduct);
 
 // Admin-only global products

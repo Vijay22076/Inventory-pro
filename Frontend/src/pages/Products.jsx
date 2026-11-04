@@ -55,6 +55,7 @@ const Products = () => {
     const [modalLoading, setModalLoading] = useState(false);
     const [imageFile, setImageFile] = useState(null);
     const [imageUrl, setImageUrl] = useState("");
+    const [productImages, setProductImages] = useState([]);
 
     const isSubmittingRef = useRef(false);
 
@@ -77,6 +78,7 @@ const Products = () => {
         setEditingProduct(null);
         setImageFile(null);
         setImageUrl("");
+        setProductImages([]);
         form.resetFields();
         const defaultWh =
             warehouses.find((w) => w.is_default) || warehouses[0];
@@ -91,6 +93,17 @@ const Products = () => {
 
     const handleEditProduct = (product) => {
         setEditingProduct(product);
+        const existingList = (product.product_images && product.product_images.length > 0)
+            ? product.product_images
+            : (product.product_image && product.product_image !== "default-product.png" ? [product.product_image] : []);
+
+        setProductImages(
+            existingList.map((url, idx) => ({
+                id: `existing-${idx}-${url.slice(-8)}`,
+                url,
+                isExisting: true,
+            }))
+        );
         setImageUrl(product.product_image || "");
         setImageFile(null);
         const currentWh =
@@ -114,6 +127,29 @@ const Products = () => {
         setIsModalVisible(true);
     };
 
+    const handleAddFiles = (files) => {
+        const newItems = files.map((file, idx) => ({
+            id: `file-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`,
+            url: URL.createObjectURL(file),
+            file,
+            isExisting: false,
+        }));
+        setProductImages((prev) => [...prev, ...newItems].slice(0, 8));
+    };
+
+    const handleRemoveImage = (index) => {
+        setProductImages((prev) => prev.filter((_, idx) => idx !== index));
+    };
+
+    const handleSetCover = (index) => {
+        setProductImages((prev) => {
+            if (index === 0) return prev;
+            const copy = [...prev];
+            const [target] = copy.splice(index, 1);
+            return [target, ...copy];
+        });
+    };
+
     const handlePrintBarcode = (product) => {
         setSelectedProductForLabel(product);
         setLabelModalVisible(true);
@@ -127,14 +163,10 @@ const Products = () => {
     const handleImageChange = (info) => {
         const { fileList } = info;
         if (fileList.length > 0) {
-            const file = fileList[0].originFileObj;
-            setImageFile(file);
-            const reader = new FileReader();
-            reader.onload = (e) => setImageUrl(e.target.result);
-            reader.readAsDataURL(file);
-        } else {
-            setImageFile(null);
-            setImageUrl(editingProduct?.product_image || "");
+            const rawFiles = fileList.map((f) => f.originFileObj).filter(Boolean);
+            if (rawFiles.length > 0) {
+                handleAddFiles(rawFiles);
+            }
         }
     };
 
@@ -154,7 +186,21 @@ const Products = () => {
             }
 
             setModalLoading(true);
-            const formData = prepareProductFormData(values, imageFile);
+
+            // Separate uploaded File objects from retained existing URLs
+            const newFiles = productImages
+                .filter((img) => !img.isExisting && img.file)
+                .map((img) => img.file);
+            const retainedUrls = productImages
+                .filter((img) => img.isExisting)
+                .map((img) => img.url);
+
+            const formData = prepareProductFormData(values, newFiles, retainedUrls);
+
+            // If primary cover photo is an existing image, specify it
+            if (productImages.length > 0 && productImages[0].isExisting) {
+                formData.append("primary_image_url", productImages[0].url);
+            }
 
             const result = editingProduct
                 ? await updateProduct(editingProduct._id, formData)
@@ -165,6 +211,7 @@ const Products = () => {
                 form.resetFields();
                 setImageFile(null);
                 setImageUrl("");
+                setProductImages([]);
                 setEditingProduct(null);
             }
         } catch (error) {
@@ -282,7 +329,11 @@ const Products = () => {
                         units={units}
                         warehouses={warehouses}
                         editingProduct={editingProduct}
-                        imageUrl={imageUrl}
+                        images={productImages}
+                        imageUrl={productImages[0]?.url || imageUrl}
+                        onAddFiles={handleAddFiles}
+                        onRemoveImage={handleRemoveImage}
+                        onSetCover={handleSetCover}
                         onSave={handleSaveProduct}
                         onCancel={() => {
                             if (isSubmittingRef.current) return;
@@ -290,6 +341,7 @@ const Products = () => {
                             setEditingProduct(null);
                             setImageFile(null);
                             setImageUrl("");
+                            setProductImages([]);
                             form.resetFields();
                         }}
                         onImageChange={handleImageChange}

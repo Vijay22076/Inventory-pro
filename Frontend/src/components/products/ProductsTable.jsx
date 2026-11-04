@@ -143,17 +143,27 @@ const ProductsTable = ({
             key: "product_image",
             width: 80,
             responsive: ["md"],
-            render: (image) => (
-                <Image
-                    src={image || "/default-product.png"}
-                    alt="Product"
-                    width={52}
-                    height={52}
-                    className="rounded-lg shadow-sm"
-                    style={{ objectFit: "cover", borderRadius: "8px" }}
-                    fallback="/default-product.png"
-                />
-            ),
+            render: (image, record) => {
+                const count = record.product_images?.length || (image ? 1 : 0);
+                return (
+                    <div className="relative inline-block">
+                        <Image
+                            src={image || "/default-product.png"}
+                            alt="Product"
+                            width={52}
+                            height={52}
+                            className="rounded-lg shadow-sm"
+                            style={{ objectFit: "cover", borderRadius: "8px" }}
+                            fallback="/default-product.png"
+                        />
+                        {count > 1 && (
+                            <span className="absolute -bottom-1 -right-1 bg-indigo-600 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full border border-white shadow">
+                                +{count}
+                            </span>
+                        )}
+                    </div>
+                );
+            },
         },
         {
             title: "Product Name",

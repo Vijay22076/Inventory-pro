@@ -42,13 +42,59 @@ const createProduct = asyncHandler(async (req, res, next) => {
     }
 
     try {
-        let productImageUrl = "default-product.png";
-        if (req.file) {
-            const image = await uploadToCloudinary(req.file);
-            if (image) {
-                productImageUrl = image.url;
+        // Collect all uploaded files from req.files or req.file
+        const incomingFiles = [];
+        if (Array.isArray(req.files) && req.files.length > 0) {
+            incomingFiles.push(...req.files);
+        } else if (req.file) {
+            incomingFiles.push(req.file);
+        }
+
+        const uploadedUrls = [];
+        for (const file of incomingFiles) {
+            const uploaded = await uploadToCloudinary(file);
+            if (uploaded?.url) {
+                uploadedUrls.push(uploaded.url);
             }
         }
+
+        // Parse any existing or manually provided images
+        let existingImages = [];
+        if (req.body.existing_images) {
+            try {
+                const parsed = typeof req.body.existing_images === "string" 
+                    ? JSON.parse(req.body.existing_images) 
+                    : req.body.existing_images;
+                if (Array.isArray(parsed)) existingImages.push(...parsed);
+                else if (typeof parsed === "string") existingImages.push(parsed);
+            } catch {
+                if (typeof req.body.existing_images === "string") {
+                    existingImages.push(req.body.existing_images);
+                }
+            }
+        }
+        if (req.body.product_images) {
+            try {
+                const parsed = typeof req.body.product_images === "string" 
+                    ? JSON.parse(req.body.product_images) 
+                    : req.body.product_images;
+                if (Array.isArray(parsed)) existingImages.push(...parsed);
+                else if (typeof parsed === "string") existingImages.push(parsed);
+            } catch {
+                if (typeof req.body.product_images === "string") {
+                    existingImages.push(req.body.product_images);
+                }
+            }
+        }
+        if (req.body.product_image && req.body.product_image !== "default-product.png") {
+            if (!existingImages.includes(req.body.product_image)) {
+                existingImages.unshift(req.body.product_image);
+            }
+        }
+
+        // Filter and deduplicate
+        const combinedImages = [...new Set([...existingImages.filter(Boolean), ...uploadedUrls])];
+        const primaryImage = combinedImages[0] || "default-product.png";
 
         const initialStock = parseInt(stock || 0, 10);
         const minThreshold = req.body.min_threshold ? parseInt(req.body.min_threshold, 10) : 10;
@@ -60,7 +106,8 @@ const createProduct = asyncHandler(async (req, res, next) => {
             unit_id,
             buying_price,
             selling_price,
-            product_image: productImageUrl,
+            product_image: primaryImage,
+            product_images: combinedImages,
             stock: initialStock,
             min_threshold: isNaN(minThreshold) ? 10 : minThreshold,
             created_by: req.user._id,
@@ -229,12 +276,70 @@ const updateProduct = asyncHandler(async (req, res, next) => {
             );
         }
 
-        if (req.file) {
-            const image = await uploadToCloudinary(req.file);
-            if (image) {
-                updateData.product_image = image.url;
+        // Collect all uploaded files from req.files or req.file
+        const incomingFiles = [];
+        if (Array.isArray(req.files) && req.files.length > 0) {
+            incomingFiles.push(...req.files);
+        } else if (req.file) {
+            incomingFiles.push(req.file);
+        }
+
+        const uploadedUrls = [];
+        for (const file of incomingFiles) {
+            const uploaded = await uploadToCloudinary(file);
+            if (uploaded?.url) {
+                uploadedUrls.push(uploaded.url);
             }
         }
+
+        // Check if existing images or new uploads are provided
+        const hasExistingImagesField = 
+            updateData.existing_images !== undefined || 
+            updateData.product_images !== undefined;
+
+        let existingImages = [];
+        if (updateData.existing_images !== undefined) {
+            try {
+                const parsed = typeof updateData.existing_images === "string" 
+                    ? JSON.parse(updateData.existing_images) 
+                    : updateData.existing_images;
+                if (Array.isArray(parsed)) existingImages.push(...parsed);
+                else if (typeof parsed === "string") existingImages.push(parsed);
+            } catch {
+                if (typeof updateData.existing_images === "string") {
+                    existingImages.push(updateData.existing_images);
+                }
+            }
+        } else if (updateData.product_images !== undefined) {
+            try {
+                const parsed = typeof updateData.product_images === "string" 
+                    ? JSON.parse(updateData.product_images) 
+                    : updateData.product_images;
+                if (Array.isArray(parsed)) existingImages.push(...parsed);
+                else if (typeof parsed === "string") existingImages.push(parsed);
+            } catch {
+                if (typeof updateData.product_images === "string") {
+                    existingImages.push(updateData.product_images);
+                }
+            }
+        }
+
+        // If client specified existing_images or uploaded new files, update images
+        if (hasExistingImagesField || uploadedUrls.length > 0) {
+            const baseImages = hasExistingImagesField 
+                ? existingImages 
+                : (existingProduct.product_images?.length > 0 
+                    ? existingProduct.product_images 
+                    : [existingProduct.product_image].filter((img) => img && img !== "default-product.png"));
+
+            const combinedImages = [...new Set([...baseImages.filter(Boolean), ...uploadedUrls])];
+            updateData.product_images = combinedImages;
+            updateData.product_image = combinedImages.length > 0 ? combinedImages[0] : "default-product.png";
+        } else if (updateData.product_image && updateData.product_image !== "default-product.png") {
+            updateData.product_images = [updateData.product_image];
+        }
+
+        delete updateData.existing_images;
 
         if (updateData.product_code) {
             const cleanCode = String(updateData.product_code).trim().toUpperCase();
@@ -325,7 +430,7 @@ const updateProduct = asyncHandler(async (req, res, next) => {
                             warehouse_id: targetWh._id,
                             product_id: id,
                             transaction_type:
-                                diff > 0 ? "adjustment_add" : "adjustment_sub",
+                                diff > 0 ? "adjustment_add" : "adjustment_deduct",
                             reference_id: id,
                             reference_no: `EDIT-${existingProduct.product_code}`,
                             quantity_before: qtyBefore,
@@ -425,7 +530,7 @@ const getCustomerCatalog = asyncHandler(async (req, res, next) => {
 
         const [products, total] = await Promise.all([
             Product.find(query)
-                .select("product_name product_code category_id unit_id product_image selling_price stock")
+                .select("product_name product_code category_id unit_id product_image product_images selling_price stock")
                 .populate("category_id", "category_name")
                 .populate("unit_id", "unit_name short_code")
                 .sort({ product_name: 1 })
@@ -440,8 +545,13 @@ const getCustomerCatalog = asyncHandler(async (req, res, next) => {
             product_name: p.product_name,
             product_code: p.product_code,
             category_name: p.category_id?.category_name || "General",
+            category: p.category_id,
+            category_id: p.category_id?._id || p.category_id,
             unit_name: p.unit_id?.unit_name || "Unit",
             product_image: p.product_image,
+            product_images: p.product_images && p.product_images.length > 0 
+                ? p.product_images 
+                : (p.product_image && p.product_image !== "default-product.png" ? [p.product_image] : []),
             selling_price: p.selling_price,
             stock: p.stock || 0,
             available_stock: p.stock || 0,

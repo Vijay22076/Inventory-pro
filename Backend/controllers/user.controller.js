@@ -479,7 +479,6 @@ const sendVerifyOtp = asyncHandler(async (req, res, next) => {
                     200,
                     {
                         email: user.email,
-                        devOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
                     },
                     "Verification OTP sent to your email successfully"
                 )
@@ -497,6 +496,16 @@ const sendChangePasswordOtp = asyncHandler(async (req, res, next) => {
 
         if (!user) {
             return next(new ApiError(404, "User not found"));
+        }
+
+        const { oldPassword } = req.body;
+        if (oldPassword) {
+            const isPasswordCorrect = await user.matchPassword(oldPassword);
+            if (!isPasswordCorrect) {
+                return next(
+                    new ApiError(400, "Current password is incorrect. Please verify and try again.")
+                );
+            }
         }
 
         const otp = crypto.randomInt(100000, 1000000).toString();
@@ -530,7 +539,6 @@ const sendChangePasswordOtp = asyncHandler(async (req, res, next) => {
                     200,
                     {
                         email: user.email,
-                        devOtp: process.env.NODE_ENV !== "production" ? otp : undefined,
                     },
                     "Verification OTP sent to your email successfully"
                 )

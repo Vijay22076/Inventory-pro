@@ -1,309 +1,420 @@
-# InventoryPro — Inventory Management System
+# 📦 InventoryPro — Enterprise Multi-Tenant Inventory & Warehouse Management System
 
-[![Node](https://img.shields.io/badge/node-%3E%3D14.0.0-brightgreen.svg)](https://nodejs.org/)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)]()
-[![License](https://img.shields.io/badge/license-ISC-lightgrey.svg)]()
-[![Deploy](https://img.shields.io/badge/deployed-Vercel-black.svg)](https://inventorypro-ims.vercel.app)
+[![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
+[![React](https://img.shields.io/badge/react-18.x-blue.svg)](https://react.dev/)
+[![Express](https://img.shields.io/badge/express-4.x-lightgrey.svg)](https://expressjs.com/)
+[![MongoDB](https://img.shields.io/badge/mongodb-Mongoose%208.x-green.svg)](https://www.mongodb.com/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)]()
+[![Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 
-A production-grade, multi-tenant **Inventory Management System** built on the MERN stack. InventoryPro handles the full supply-chain loop — from supplier purchase orders and real-time stock tracking to customer sales orders, PDF invoice generation, and automated weekly low-stock email alerts — all behind a layered JWT + RBAC authentication system.
+**InventoryPro** is a production-ready, full-stack **Inventory Management System (IMS), Warehouse Management System (WMS), and Customer E-Commerce Storefront** built on the MERN stack (MongoDB, Express, React, Node.js). 
 
----
-
-## 🧠 Key Features
-
-- **Atomic stock operations** — `findOneAndUpdate` with `$gte` guard prevents overselling under concurrent order creation; all stock mutations run inside MongoDB sessions with full transaction rollback on failure.
-- **Explicit order & purchase state machines** — enforced transition graphs (`pending → processing → completed / cancelled`, `pending → completed → returned`) block illegal status jumps at the service layer before any DB write.
-- **Service layer architecture** — `OrderService` and `PurchaseService` encapsulate all business logic (invoice generation, multi-item stock deduction, return processing) and keep controllers thin.
-- **Purchase return workflow** — a dedicated return-preview endpoint calculates what is actually returnable based on current stock before committing, preventing negative inventory.
-- **CSV bulk product ingestion** — parses up to 500 rows, resolves category/unit references, deduplicates within the batch and against the DB, and returns a per-row error report using HTTP 207 Multi-Status.
-- **Automated low-stock scheduler** — a `node-cron` singleton emails per-user HTML reports every Monday at 09:00 (IST) with a Vercel Cron fallback; fully controllable via admin API endpoints.
-- **On-the-fly PDF invoices** — `pdfkit` renders branded, itemised A4 invoices with GST breakdown, streamed directly to the response without temporary files.
-- **Multi-tenant data isolation** — every resource record carries a `created_by` reference; middleware enforces that users can only read/write their own data, while admins bypass the filter.
-- **OTP-based auth flows** — email verification, password reset, and password change each have independent OTP issuance + 10-minute expiry + invalidation-on-use cycles.
-- **Environment-aware file uploads** — Multer switches between disk storage (local dev) and memory storage (Vercel production), feeding a unified `uploadToCloudinary` helper that handles both.
+Designed for enterprise inventory tracking, multi-facility warehouse operations, and seamless digital commerce, InventoryPro handles the complete supply-chain lifecycle: from supplier procurement and atomic multi-warehouse stock allocations to customer ordering, automated Razorpay payment verification, instant GST invoice generation, automated customer return workflows (RMA), low-stock weekly schedulers, and double-entry immutable audit ledgers.
 
 ---
 
-## 🏗️ Architecture & Design
+## 📑 Table of Contents
 
-The backend follows a **layered MVC + Service pattern**:
+- [Key System Capabilities](#-key-system-capabilities)
+- [System Personas & Role-Based Access Control](#-system-personas--role-based-access-control)
+- [System Architecture](#-system-architecture)
+- [Core Functional Modules](#-core-functional-modules)
+  - [1. Product Catalog & Multi-Image Gallery](#1-product-catalog--multi-image-gallery)
+  - [2. Warehouse Management System (WMS)](#2-warehouse-management-system-wms)
+  - [3. Customer Storefront & Online Ordering](#3-customer-storefront--online-ordering)
+  - [4. Customer Returns & RMA with Automated Refunds](#4-customer-returns--rma-with-automated-refunds)
+  - [5. Business Reports & Low-Stock Alerts Engine](#5-business-reports--low-stock-alerts-engine)
+  - [6. Immutable Double-Entry Stock Ledger](#6-immutable-double-entry-stock-ledger)
+- [Technology Stack](#-technology-stack)
+- [Database Architecture (17 Data Models)](#-database-architecture-17-data-models)
+- [REST API Reference](#-rest-api-reference)
+- [Installation & Getting Started](#-installation--getting-started)
+- [Environment Variables](#-environment-variables)
+- [Default System Credentials](#-default-system-credentials)
+- [Security & Engineering Highlights](#-security--engineering-highlights)
+- [Contributing & License](#-contributing--license)
+
+---
+
+## 🧠 Key System Capabilities
+
+- **Atomic Stock Deductions & Replenishments**: Uses atomic MongoDB updates (`findOneAndUpdate` with `$gte` guards) and MongoDB session transactions (`startTransaction` / `abortTransaction`) to eliminate overselling and race conditions under heavy concurrent ordering.
+- **Enterprise Multi-Image Support**: Products support galleries with up to 8 high-resolution images, primary cover photo selection, dynamic thumbnail switchers in drawers, table indicators (`+2`, `+3`), and storefront order preview carousels.
+- **Rigid WMS Location Hierarchy**: Facility addresses strictly enforce `Street/Landmark → State (Dropdown) → City (Dropdown) → 6-digit PIN code ([0-9]{6})` with facility contact noise removed.
+- **Dual-Party Automated Return Notifications**: When a customer requests a product return, automated Nodemailer/SMTP emails are simultaneously delivered to the **customer** (with tracking details) and the **admin** (with action-required review links).
+- **Automated Razorpay Payment & Instant Refund Engine**: Online payment gateway verification via HMAC-SHA256 signatures, paired with automated Razorpay Refund API execution when administrators approve customer returns.
+- **Automated Low-Stock Scheduler & Live Audit**: In-process `node-cron` scan runs every Monday at 9:00 AM IST to alert administrators of items falling below minimum safety thresholds, backed by a persistent MongoDB `AlertLog` table and an interactive manual test trigger in the UI.
+- **On-the-Fly Branded GST Tax Invoices**: Generates PDF tax invoices on demand with `pdfkit`, incorporating itemised tables, GST tax rates, HSN codes, company details, and authorized signatures.
+- **CSV Bulk Product Upload**: Ingests up to 500 rows per batch with per-row validation, reference resolution for categories/units, and HTTP 207 Multi-Status partial error reporting.
+
+---
+
+## 👥 System Personas & Role-Based Access Control
+
+The platform enforces a strict 3-tier Role-Based Access Control (RBAC) hierarchy backed by JWT authentication:
 
 ```
-HTTP Request
-    │
-    ▼
-Router           (routes/*.routes.js)   — maps HTTP verbs to middleware chains
-    │
-    ▼
-Middleware       (middleware/)          — JWT verification, RBAC (isAdmin), Multer, error handler
-    │
-    ▼
-Controller       (controllers/)        — parses request, validates inputs, delegates to service or model
-    │
-    ▼
-Service          (services/)           — coordinates multi-step business logic within DB transactions
-    │
-    ▼
-Model            (models/)             — Mongoose schemas with encapsulated static methods
-    │
-    ▼
-MongoDB (Atlas)
+                  ┌───────────────────────────────┐
+                  │       System Personas         │
+                  └──────────────┬────────────────┘
+                                 │
+         ┌───────────────────────┼───────────────────────┐
+         ▼                       ▼                       ▼
+   ┌───────────┐           ┌───────────┐           ┌───────────┐
+   │   Admin   │           │  Manager  │           │ Customer  │
+   └─────┬─────┘           └─────┬─────┘           └─────┬─────┘
+         │                       │                       │
+         ├─ Full Global Access   ├─ Assigned Facilities  ├─ E-Commerce Storefront
+         ├─ User & Role Mgmt     ├─ Inbound GRN          ├─ Live Stock Browsing
+         ├─ Facility Allocations ├─ Stock Transfers      ├─ Cart & Instant Checkout
+         ├─ Master Stock Reports ├─ Cycle Counts / Adj.  ├─ Real-time Order Tracking
+         ├─ Alert Audit Controls ├─ RMA Approvals        ├─ Return Requests (RMA)
+         └─ Financial Overview   └─ Warehouse Ledgers    └─ Saved Addresses & OTPs
 ```
 
-Controllers that deal with complex transactional flows (orders, purchases) delegate entirely to service classes, keeping the controller layer to pure HTTP concerns. Simpler CRUD resources (categories, units, suppliers, customers) are handled inline with thin controllers that call model statics directly.
-
-All async route handlers are wrapped in a shared `asyncHandler` utility that propagates thrown errors to the Express error middleware, which discriminates `ApiError` instances from unexpected crashes and returns structured JSON either way.
-
----
-
-## ⚙️ Tech Stack
-
-| Layer | Technology |
-|---|---|
-| **Runtime** | Node.js (ESM, `"type": "module"`) |
-| **Framework** | Express 4.x |
-| **Database** | MongoDB via Mongoose 8.x |
-| **Authentication** | JSON Web Tokens (`jsonwebtoken`), bcryptjs |
-| **File Uploads** | Multer (disk + memory), Cloudinary SDK v2 |
-| **Email** | Nodemailer (Gmail SMTP) |
-| **PDF Generation** | PDFKit |
-| **Scheduling** | node-cron + Vercel Cron |
-| **Frontend** | React 18, Vite, React Router v7 |
-| **UI Library** | Ant Design 5.x, Tailwind CSS 3.x |
-| **Charts** | Recharts, @ant-design/plots |
-| **HTTP Client** | Axios |
-| **Deployment** | Vercel (backend + frontend) |
-| **Code Quality** | Prettier |
+| Feature / Permission | Admin | Warehouse Manager | Customer |
+| :--- | :---: | :---: | :---: |
+| Global Analytics & Valuation Dashboard | ✅ | ❌ | ❌ |
+| User & Role Management (`/users`) | ✅ | ❌ | ❌ |
+| Create / Edit Products & Galleries | ✅ | ❌ | ❌ |
+| Warehouse Facility Setup & Location Config | ✅ | ❌ | ❌ |
+| Inter-Warehouse Transfers & Approvals | ✅ | ✅ (Assigned) | ❌ |
+| Stock Counts & Adjustments (`adjustment_add/deduct`) | ✅ | ✅ (Assigned) | ❌ |
+| Customer Storefront Catalog (`/customer/catalog`) | ✅ | ✅ | ✅ |
+| Place Orders & Pay via Razorpay / COD | ❌ | ❌ | ✅ |
+| Request Product Returns (RMA) | ❌ | ❌ | ✅ |
+| Authorize Returns & Issue Razorpay Refunds | ✅ | ✅ | ❌ |
+| Restock Returned Goods into Facility | ✅ | ✅ | ❌ |
+| Low-Stock Scheduler Controls & Audit Logs | ✅ | ❌ | ❌ |
+| Stream Branded PDF Tax Invoices | ✅ | ✅ | ✅ (Own) |
 
 ---
 
-## 🔌 API Overview
+## 🏛️ System Architecture
 
-Base URL: `https://localhost:3001/api/v1`
+The application is structured into decoupled, maintainable layers following the **Controller-Service-Repository** pattern:
 
-All endpoints return a consistent envelope:
+```
+Frontend (React 18 + Vite + Ant Design + Tailwind CSS)
+   │
+   ▼ HTTP Requests / Axios Interceptors (JWT Bearer Token / HTTP-only Cookies)
+Backend API (Express 4.x + Node.js ESM)
+   │
+   ├── Middlewares:
+   │     ├── auth.middleware.js        (JWT extraction from Cookie/Header, user validation)
+   │     ├── rbac.middleware.js        (requireRole: 'admin', 'manager', 'customer')
+   │     ├── multer.middleware.js      (Memory/disk storage + MIME image/CSV validation)
+   │     └── error.middleware.js       (Centralized error serialization to ApiError)
+   │
+   ├── Controllers:
+   │     ├── product.controller.js     (Product CRUD, multi-image upload, stock ledger)
+   │     ├── order.controller.js       (Order lifecycle, PDF invoice streaming)
+   │     ├── payment.controller.js     (Razorpay order creation, HMAC signature verification)
+   │     ├── return.controller.js      (Customer return requests, status machine, restock)
+   │     ├── warehouse.controller.js   (WMS operations, facility CRUD, bin locations)
+   │     └── scheduler.controller.js   (Cron controls, manual alert trigger, alert logs)
+   │
+   ├── Services:
+   │     ├── order.service.js          (Order state machine, atomic stock deduction)
+   │     ├── purchase.service.js       (Procurement lifecycle, GRN receiving, return preview)
+   │     ├── warehouse.service.js      (Stock synchronization, multi-facility allocation)
+   │     └── adjustment.service.js     (Physical inventory variance reconciliation)
+   │
+   └── Data & Utilities:
+         ├── models/                   (17 Mongoose schemas with compound indexes)
+         ├── utils/nodemailer.js       (Gmail SMTP singleton over TLS/SSL)
+         ├── utils/emailTemplates.js   (Inline CSS, responsive HTML email templates)
+         └── utils/lowStockScheduler.js(Singleton cron engine with alert logging)
+```
 
+---
+
+## 🎯 Core Functional Modules
+
+### 1. Product Catalog & Multi-Image Gallery
+- **Product Identification**: Strictly enforces an 8-character uppercase alphanumeric SKU (`[A-Z0-9]{8}`, e.g., `MBP16001`, `ACGM0101`).
+- **Multi-Image Gallery**: Upload up to 8 photos per item. Allows designated primary cover selection, live interactive thumbnail switching in product drawers, and drag-and-drop reordering.
+- **Stock Tracking**: Stores unit cost, selling price, safety alert threshold (default: 10 units), and warehouse bin location (`A-01-01`).
+- **Bulk CSV Upload**: Validates rows, resolves category and unit IDs automatically, deduplicates SKU codes, and returns HTTP 207 Multi-Status reports for failed rows.
+
+### 2. Warehouse Management System (WMS)
+- **Facility Master**: Create regional fulfillment centers (`WH-BLR-01`, `WH-MUM-01`) with strict location ordering: `Street/Landmark → State → City → 6-digit PIN code`.
+- **Bin/Rack Locations**: Tracks precise storage locations within aisles and bins (`A-01-01`, `F-01-10`).
+- **Inter-Warehouse Stock Transfers**: Manages inventory balancing between hubs with full status transitions (`pending → in_transit → completed / cancelled`).
+- **Cycle Counts & Stock Adjustments**: Supports physical audit counts, calculating variances and logging double-entry movements (`adjustment_add` / `adjustment_deduct`) to maintain balanced books.
+
+### 3. Customer Storefront & Online Ordering
+- **Customer Shopping Experience**: Live catalog browsing with category tabs, real-time stock badges, search and price filters, multi-photo indicators, and product detail views.
+- **Cart & Instant Checkout**: Persistent multi-item cart calculating subtotal, GST (18%), and final invoice total.
+- **Payment Flexibility**:
+  - **Online Payment**: Integrated Razorpay modal (UPI, Cards, NetBanking, Wallets) with cryptographically verified HMAC-SHA256 signatures.
+  - **Cash on Delivery (COD)**: Instant order dispatch option with automated receipt generation.
+- **Branded Tax Invoices**: Download official A4 PDF tax invoices with itemized totals, GST breakdowns, company credentials, and payment metadata.
+
+### 4. Customer Returns & RMA with Automated Refunds
+- **7-Day Customer Return Window**: Customers can select delivered orders, choose items to return, select categorized return reasons (`Defective`, `Damaged in Transit`, `Wrong Item`, `Size/Fit Issue`, `Other`), and enter details.
+- **Dual Email Notification Engine**:
+  - 📧 **Customer Confirmation**: Branded email confirming return submission, return reference `#RET-XXXXXX`, items, and tracking link.
+  - 📧 **Admin Alert**: Immediate operational alert dispatched to administrators containing customer info, order number, warehouse facility, return reason, and review CTA.
+- **Automated Razorpay Refund Execution**: When an admin authorizes a return, the system automatically calls the Razorpay Refund API to return the purchase amount to the customer's original payment method.
+- **Warehouse Restock Reconciliation**: When returned items arrive at the facility, managers restock items directly into WMS inventory, restoring stock levels and logging an `adjustment_add` in the immutable Stock Ledger.
+
+### 5. Business Reports & Low-Stock Alerts Engine
+- **Reports Dashboard**:
+  - **Stock Report**: In-stock, low-stock ($\le 10$), and out-of-stock inventory with valuation.
+  - **Sales Report**: Daily, weekly, and monthly revenue analytics with filterable date ranges.
+  - **Purchase Report**: Procurement expenditure, supplier order status, and GRN receipts.
+  - **Top Products**: High-velocity products ranked by quantity sold and revenue generated.
+- **Alerts & Audit Logs Module**:
+  - Displays real-time logs of automated weekly cron scans and manual tests.
+  - Displays KPI summary cards: Total Alerts Sent, Minimum Threshold ($\le 10$), Cron Schedule (Every Monday 9:00 AM IST), and SMTP Channel status.
+  - Filterable audit history showing timestamps, trigger events (`Manual Test`, `Weekly Cron`), recipient email, alerted SKUs, deficit tags, and delivery status with SMTP message IDs.
+  - **Trigger Live Alert**: Header and audit tab button allowing administrators to trigger a live low-stock email scan with modal confirmation.
+
+### 6. Immutable Double-Entry Stock Ledger
+Every stock mutation is recorded with before/after counts, quantity change, reference numbers, and timestamps:
+- `purchase_receipt`: Inward goods from supplier purchase orders (GRN).
+- `order_dispatch`: Outward customer sales order fulfillment.
+- `transfer_out` / `transfer_in`: Inter-warehouse regional stock movements.
+- `adjustment_add` / `adjustment_deduct`: Physical count reconciliations, product stock edits, and manual audits.
+- `purchase_return`: Outward return of inventory back to suppliers.
+
+---
+
+## 🛠️ Technology Stack
+
+| Layer | Component | Version / Library |
+| :--- | :--- | :--- |
+| **Frontend** | Framework | React 18, Vite 6.x |
+| | Routing | React Router DOM v7 |
+| | UI Components | Ant Design 5.x, Ant Design Icons |
+| | Styling | Tailwind CSS 3.x, Custom CSS |
+| | Charts & Analytics | Recharts, @ant-design/plots |
+| | HTTP Client | Axios with request/response interceptors |
+| | Toast Notifications | React Hot Toast |
+| **Backend** | Runtime | Node.js (ES Modules, `"type": "module"`) |
+| | Framework | Express 4.x |
+| | Database Engine | MongoDB 7.x / MongoDB Atlas |
+| | ODM | Mongoose 8.x |
+| | Authentication | JSON Web Tokens (`jsonwebtoken`), `bcryptjs` |
+| | File Uploads | Multer, Cloudinary SDK v2 |
+| | Payments | Razorpay SDK (`razorpay`) with HMAC-SHA256 verification |
+| | Email Engine | Nodemailer with Gmail SSL/TLS (port 465) |
+| | PDF Generation | PDFKit (streaming A4 documents) |
+| | Scheduler | `node-cron` (Weekly Cron Singleton) |
+| | Barcode / QR | `bwip-js` (Code128, QR Code) |
+
+---
+
+## 🗄️ Database Architecture (17 Data Models)
+
+```
+       ┌───────────┐         1:N        ┌──────────────┐
+       │   User    ├───────────────────►│   Category   │
+       └─────┬─────┘                    └──────────────┘
+             │               1:N        ┌──────────────┐
+             ├─────────────────────────►│     Unit     │
+             │                          └──────────────┘
+             │               1:N        ┌──────────────┐
+             ├─────────────────────────►│  Warehouse   │
+             │                          └──────┬───────┘
+             │                                 │
+             │               1:N               ▼ 1:N
+             ├─────────────────────────►┌──────────────┐
+             │                          │WarehouseStock│
+             │                          └──────▲───────┘
+             │               1:N               │ 1:N
+             ├─────────────────────────►┌──────┴───────┐
+             │                          │   Product    │
+             │                          └──────▲───────┘
+             │                                 │ 1:N
+             ▼ 1:N                             │
+       ┌───────────┐         1:N        ┌──────┴───────┐
+       │   Order   ├───────────────────►│ OrderDetail  │
+       └─────┬─────┘                    └──────────────┘
+             │               1:N        ┌──────────────┐
+             ├─────────────────────────►│ReturnRequest │
+             │                          └──────────────┘
+             ▼ 1:N                              ▲
+       ┌───────────┐                            │
+       │StockLedger├────────────────────────────┘
+       └───────────┘
+```
+
+1. **`User`**: Core identity model supporting roles (`admin`, `manager`, `customer`), password hashing, assigned warehouses, shipping addresses, OTP issuance, and token refresh.
+2. **`Product`**: Product details, 8-character SKU, multi-image gallery array (`images`), primary cover (`product_image`), pricing, stock, min threshold, bin location, and category/unit references.
+3. **`Warehouse`**: Facility metadata, warehouse code, capacity, default flag, and address (`street`, `state`, `city`, `pincode`).
+4. **`WarehouseStock`**: Compound relationship mapping stock quantity and bin location per product per warehouse.
+5. **`StockLedger`**: Double-entry ledger recording `quantity_before`, `quantity_change`, `quantity_after`, `transaction_type`, and `reference_no`.
+6. **`Order`**: Sales orders, invoice numbers (`INV-XXXXXX`), order status, customer details, warehouse reference, totals, and Razorpay payment details.
+7. **`OrderDetail`**: Line items for orders, recording product ID, quantity, unit cost, and line total.
+8. **`ReturnRequest`**: RMA management storing `return_no` (`RET-XXXXXX`), order reference, returned items, reason, admin notes, status (`pending`, `approved`, `rejected`, `received`), and Razorpay refund details.
+9. **`AlertLog`**: Persistent record of every alert transmission (`manual_test`, `scheduled_cron`, `order_event`), recipient email, alerted SKUs, delivery status, and SMTP message IDs.
+10. **`Category`**: Product classification with user-level isolation and admin global visibility.
+11. **`Unit`**: Measurement units (Piece, Box, Kilogram, Set, Meter, Liter).
+12. **`Supplier`**: Vendor profiles, contact details, and bank account information.
+13. **`Customer`**: External customer business profiles.
+14. **`Purchase`**: Procurement orders (`PUR-XXXXXX`), supplier reference, status machine, and totals.
+15. **`PurchaseDetail`**: Line items for purchases, recording unit cost, received quantities, and return histories.
+16. **`StockTransfer`**: Inter-warehouse transfer records with transit tracking and approval signatures.
+17. **`StockAdjustment`**: Physical inventory reconciliation records storing counted vs system variances.
+
+---
+
+## 🔌 REST API Reference
+
+Base URL: `http://localhost:3001/api/v1`
+
+All responses follow a consistent envelope structure:
 ```json
 {
   "statusCode": 200,
-  "data": { },
+  "data": {},
   "message": "Operation successful",
   "success": true
 }
 ```
 
-### Resource Groups
+### Core API Groups
 
-| Tag | Prefix | Description |
-|---|---|---|
-| Auth | `/users` | Register, login, logout, token refresh, OTP flows |
-| Products | `/products` | CRUD + CSV bulk upload + Barcodes/QR codes |
-| Categories | `/categories` | User-scoped + admin global view |
-| Units | `/units` | Measurement unit management |
-| Customers | `/customers` | Customer profiles with photo upload |
-| Suppliers | `/suppliers` | Supplier profiles with banking details |
-| Purchases | `/purchases` | Purchase orders, status transitions, return preview |
-| Orders | `/orders` | Sales orders, status machine, PDF invoice streaming |
-| Payments | `/payments` | Razorpay order creation, HMAC verification, webhook reconciliation |
-| Warehouses | `/warehouses` | Multi-warehouse regional allocation, bin locations, stock transfers |
-| Returns | `/returns` | Customer returns lifecycle, manager restock, automated Razorpay refunds |
-| Ledger | `/ledger` | Immutable inventory transaction double-entry audit trails |
-| Reports | `/reports` | Dashboard KPIs, stock, sales, purchases, top products, low-stock |
-| Scheduler | `/scheduler` | Admin control over cron job and alert threshold |
-
-### Authentication
-
-Tokens are accepted from three sources (in priority order): `Authorization: Bearer <token>` header, `accessToken` cookie, `accessToken` body/query field.
-
-| Token | TTL | Transport |
-|---|---|---|
-| Access | 1 day | Header / Cookie |
-| Refresh | 10 days | HTTP-only Cookie |
-
-### Status Code Contract
-
-| Code | Meaning |
-|---|---|
-| 201 | Resource created |
-| 207 | Partial success (bulk upload) |
-| 400 | Validation failure |
-| 401 | Missing / invalid token |
-| 403 | Insufficient role |
-| 404 | Resource not found |
-| 409 | Duplicate constraint |
-| 422 | Insufficient stock |
-| 500 | Unhandled server error |
+| Group | Method | Endpoint | Access | Description |
+| :--- | :---: | :--- | :---: | :--- |
+| **Auth** | `POST` | `/users/register` | Public | Register new user account with role selection |
+| | `POST` | `/users/login` | Public | Authenticate user, set HTTP-only JWT cookies |
+| | `POST` | `/users/logout` | Private | Revoke refresh token and clear cookies |
+| | `POST` | `/users/send-change-password-otp` | Private | Validates current password, sends 6-digit email OTP |
+| | `POST` | `/users/verify-change-password-otp` | Private | Validates 6-digit email OTP |
+| | `POST` | `/users/change-password` | Private | Commits new password with bcrypt hashing |
+| | `GET` | `/users/current-user` | Private | Retrieve active authenticated session profile |
+| **Products** | `GET` | `/products` | Private | List products with pagination, search, and category filters |
+| | `POST` | `/products` | Admin | Create product with up to 8 gallery images |
+| | `PATCH` | `/products/:id` | Admin | Update product details, stock adjustments, and gallery images |
+| | `DELETE` | `/products/:id` | Admin | Soft/hard delete product from catalog |
+| | `POST` | `/products/bulk-upload` | Admin | Upload CSV containing up to 500 product records |
+| **Warehouses** | `GET` | `/warehouses` | Private | List all regional warehouse facilities |
+| | `POST` | `/warehouses` | Admin | Create warehouse with state/city dropdowns and 6-digit PIN |
+| | `PUT` | `/warehouses/:id` | Admin | Update warehouse facility address and details |
+| | `GET` | `/warehouses/stock` | Private | Query product inventory per facility |
+| | `POST` | `/transfers` | Manager+ | Initiate inter-warehouse stock transfer |
+| | `POST` | `/adjustments` | Manager+ | Submit cycle count physical stock adjustment |
+| **Customer Storefront** | `GET` | `/products` | Customer | Browse catalog with live regional availability |
+| | `POST` | `/payments/create-order` | Customer | Create Razorpay payment order |
+| | `POST` | `/payments/verify` | Customer | Verify HMAC-SHA256 signature and complete order |
+| | `GET` | `/orders/my-orders` | Customer | View customer order history and tracking |
+| | `GET` | `/orders/:id/invoice` | Customer | Stream branded PDF tax invoice |
+| **Returns & RMA** | `POST` | `/returns/request` | Customer | Submit return request (**triggers emails to customer & admin**) |
+| | `GET` | `/returns/my-returns` | Customer | View customer return requests and statuses |
+| | `GET` | `/returns` | Manager+ | Admin/Manager review all incoming return requests |
+| | `PATCH` | `/returns/:id/status` | Manager+ | Approve/reject return (triggers automated Razorpay refund) |
+| | `PATCH` | `/returns/:id/process` | Manager+ | Receive returned goods and restock into warehouse |
+| **Reports & Scheduler** | `GET` | `/reports/stock` | Private | Fetch real-time stock valuation and deficit report |
+| | `GET` | `/reports/sales` | Private | Fetch sales revenue and order volume analytics |
+| | `GET` | `/scheduler/logs` | Admin | Fetch audit history of alert transmissions |
+| | `POST` | `/scheduler/trigger-alerts`| Admin | Manually trigger low-stock alert scan and email dispatch |
 
 ---
 
-## 🗄️ Database Design
-
-Fourteen interconnected Mongoose models, all with `timestamps: true`:
-
-| Model | Key Fields | Relationships |
-|---|---|---|
-| `User` | `username`, `email`, `password` (bcrypt), `role` (`admin/manager/customer`), OTP fields, `refreshToken` | root entity |
-| `Category` | `category_name`, `created_by` | → User |
-| `Unit` | `unit_name`, `created_by` | → User |
-| `Product` | `product_code` (unique per user), `stock`, `buying_price`, `selling_price`, `min_threshold` | → Category, Unit, User |
-| `Customer` | `name`, `email`, `phone`, `type`, banking fields | → User |
-| `Supplier` | `name`, `shopname`, banking fields | → User |
-| `Purchase` | `purchase_no` (globally unique), `purchase_status`, `warehouse_id` | → Supplier, Warehouse, User |
-| `PurchaseDetail` | `quantity`, `unitcost`, return tracking fields | → Purchase, Product |
-| `Order` | `invoice_no` (globally unique), `order_status`, `payment_info` (Razorpay details) | → Customer, Warehouse, User |
-| `OrderDetail` | `quantity`, `unitcost`, `total` | → Order, Product |
-| `Warehouse` | `warehouse_name`, `warehouse_code`, `location`, `capacity`, `is_default` | → User |
-| `WarehouseStock`| `warehouse_id`, `product_id`, `quantity`, `bin_location` | → Warehouse, Product |
-| `StockLedger` | `warehouse_id`, `product_id`, `transaction_type`, `quantity_change`, `reference_no` | → Warehouse, Product, User |
-| `ReturnRequest`| `return_no`, `order_id`, `items`, `status`, `refund_info` (Razorpay refund ID & amount) | → Order, Warehouse, User |
-
-**Notable design decisions:**
-
-- `Product` uses a compound unique index `{ product_code, created_by }` so the same code can exist across different user tenants.
-- `Product.deductStock` uses an atomic `findOneAndUpdate` with `{ stock: { $gte: quantity } }` as a filter — if the document doesn't match (race condition), the update returns `null` and the transaction aborts rather than silently overselling.
-- Purchase returns track `returned_quantity` and `refund_amount` per `PurchaseDetail` row, enabling partial returns and audit trails.
-- Category visibility merges user-owned categories with admin-created categories (de-duplicated via `Set`) to give users a shared taxonomy without compromising isolation.
-
----
-
-## 📂 Project Structure
-
-```
-Backend/
-├── controllers/        # Thin HTTP handlers — validate input, delegate, return response
-│   ├── order.controller.js
-│   ├── purchase.controller.js
-│   ├── product.bulk.controller.js   # CSV ingestion logic
-│   └── ...
-├── services/           # Business logic, transactions, state machine enforcement
-│   ├── order.service.js
-│   └── purchase.service.js
-├── models/             # Mongoose schemas + encapsulated static methods
-│   ├── product.model.js             # deductStock / restoreStock / findInsufficientStock
-│   ├── order.model.js               # getOrderWithDetails (aggregation pipeline)
-│   └── ...
-├── routes/             # Express Router — wires middleware chains to controllers
-├── middleware/
-│   ├── auth.middleware.js           # JWT verification → req.user
-│   ├── admin.middleware.js          # Role guard
-│   ├── multer.middleware.js         # Env-aware storage + CSV/image filters
-│   └── error.middleware.js          # Centralised error serialiser
-├── utils/
-│   ├── ApiError.js                  # Typed error with statusCode + errors[]
-│   ├── ApiResponse.js               # Consistent success envelope
-│   ├── asyncHandler.js              # Async error propagation wrapper
-│   ├── cloudinary.js                # Buffer + disk upload strategies
-│   ├── nodemailer.js                # Gmail SMTP transporter singleton
-│   └── lowStockScheduler.js        # Cron singleton with per-user email dispatch
-├── db/index.js                      # Connection pooling (maxPoolSize: 10), singleton guard
-├── app.js                           # Express setup, CORS whitelist, route registration
-└── index.js                         # Server bootstrap, graceful shutdown (SIGTERM/SIGINT)
-
-Frontend/
-├── src/
-│   ├── pages/          # Dashboard, Products, Orders, Purchases, Customers, Suppliers, Reports, …
-│   ├── components/     # DashboardLayout, ProtectedRoute, ProfilePage, ErrorPage
-│   ├── context/        # AuthContext (global auth state)
-│   └── App.jsx         # Route tree — public, protected, dashboard nested routes
-```
-
----
-
-## 🧪 Engineering Highlights
-
-**Transaction safety** — order creation, purchase completion, and purchase returns all run inside `mongoose.startSession()` / `startTransaction()` blocks. Any failure in the multi-step sequence (e.g., stock deduction for item N fails after items 0…N-1 succeeded) triggers `abortTransaction()` and re-throws, ensuring inventory never ends up in a partial state.
-
-**State machine enforcement** — both `OrderService.updateOrderStatus` and `PurchaseService.updatePurchaseStatus` maintain an explicit adjacency map. Attempting an invalid transition (e.g., `completed → processing`) throws a 400 `ApiError` before any DB operation is attempted. This makes the state graph a first-class concern of the service layer rather than scattered conditional logic.
-
-**Bulk upload resilience** — `bulkUploadProducts` uses `insertMany({ ordered: false })` so valid rows are inserted even when some rows fail. `BulkWriteError` is caught and dissected to surface per-document errors alongside a successful insert count, returned as HTTP 207.
-
-**Connection pooling** — `connectDB` uses a module-level `isConnected` flag to avoid re-creating connections on Vercel's serverless function reuse, with `maxPoolSize: 10` and socket/server selection timeouts tuned for Atlas.
-
-**Separation of concerns** — `ApiError` and `ApiResponse` classes enforce a contract at every layer boundary. Controllers never construct raw response objects; services never reference `req`/`res`. The error middleware is the single point that serialises `ApiError` instances to HTTP, meaning error shape is guaranteed consistent regardless of where in the stack the error originates.
-
-**Graceful shutdown** — `SIGTERM` and `SIGINT` handlers stop the cron scheduler before `process.exit`, preventing orphaned cron jobs on container restarts.
-
-**Security posture** — CORS origin whitelist rejects unknown origins (including Postman only via `!origin` pass-through for tooling), cookies are `httpOnly`, `secure` in production, and `sameSite: none` for cross-origin deployments. Refresh token rotation invalidates the old token on each use.
-
----
-
-## 🚀 Getting Started
+## 🚀 Installation & Getting Started
 
 ### Prerequisites
+- **Node.js**: `v18.0.0` or higher
+- **MongoDB**: Local MongoDB instance (`127.0.0.1:27017`) or MongoDB Atlas URI
+- **Google Chrome**: For headless Puppeteer automation and test verification
+- **Gmail Account**: With an App Password generated for SMTP email dispatch
 
-- Node.js ≥ 14
-- MongoDB Atlas cluster (or local MongoDB)
-- Cloudinary account
-- Gmail account with App Password enabled
+### 1. Clone the Repository
+```bash
+git clone https://github.com/rayapatiravitheja/Infoziant-MERN.git
+cd Infoziant-MERN
+```
 
-### Backend
-
+### 2. Backend Setup
 ```bash
 cd Backend
 npm install
 ```
 
-Create a `.env` file in `Backend/`:
-
+Create `.env` file in the `Backend/` directory:
 ```env
 PORT=3001
-MONGODB_URI=mongodb+srv://<user>:<pass>@cluster.mongodb.net
+MONGODB_URI=mongodb://127.0.0.1:27017/IMS
 NODE_ENV=development
 
-ACCESS_TOKEN_SECRET=<secret>
+ACCESS_TOKEN_SECRET=your_super_secret_access_jwt_key_here_minimum_32_characters
 ACCESS_TOKEN_EXPIRY=1d
-REFRESH_TOKEN_SECRET=<secret>
+REFRESH_TOKEN_SECRET=your_super_secret_refresh_jwt_key_here_minimum_32_characters
 REFRESH_TOKEN_EXPIRY=10d
 
-CLOUDINARY_CLOUD_NAME=<name>
-CLOUDINARY_API_KEY=<key>
-CLOUDINARY_API_SECRET=<secret>
+# Cloudinary Storage (optional in local dev with disk storage)
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
 
-SENDER_EMAIL=<gmail>
-SENDER_PASSWORD=<app-password>
+# Gmail SMTP Configuration
+EMAIL_SERVICE=gmail
+EMAIL_USER=your_email@gmail.com
+EMAIL_PASS=your_gmail_16_digit_app_password
+SENDER_EMAIL=your_email@gmail.com
+ADMIN_EMAIL=rayapatiravitheja@gmail.com
+
+# Razorpay Payment Gateway (Test or Live Keys)
+RAZORPAY_KEY_ID=rzp_test_your_key_id
+RAZORPAY_KEY_SECRET=your_razorpay_secret
 
 FRONTEND_URL=http://localhost:5173
 TIMEZONE=Asia/Kolkata
 ```
 
+Start the Backend Development Server:
 ```bash
-npm run dev      # nodemon
-# or
-npm start        # node
+npm run dev
+# Server will listen on http://localhost:3001
 ```
 
-### Frontend
-
+### 3. Frontend Setup
 ```bash
-cd Frontend
+cd ../Frontend
 npm install
-npm run dev      # Vite dev server on :5173
 ```
 
-### Deployment (Vercel)
-
-The backend includes a `vercel.json` that routes all `/api/v1/*` traffic to `index.js` and registers a Vercel Cron to call `/api/v1/scheduler/trigger-alerts` every Monday at 09:00 UTC, serving as a serverless-compatible fallback for the in-process `node-cron` scheduler (which is disabled in production via the `NODE_ENV` guard in `index.js`).
-
----
-
-## 📌 Future Improvements
-
-- **Idempotency keys** on order/purchase creation endpoints to safely handle client retries without duplicate records.
-- **Redis-backed distributed locking** as a complement to MongoDB's optimistic concurrency for high-throughput stock deduction scenarios.
-- **Webhook events** on order/purchase status transitions to enable downstream integrations (ERP, accounting) without polling.
-- **Audit log collection** — store every status transition and stock mutation with actor, timestamp, and before/after values for compliance and debugging.
-- **Test coverage** — unit tests for state machine logic in services, integration tests for the bulk upload pipeline, and contract tests for the API response envelope.
-- **Rate limiting** on auth endpoints (OTP send, login) to protect against brute-force and OTP enumeration attacks.
+Start the Frontend Vite Development Server:
+```bash
+npm run dev
+# Application will launch on http://localhost:5173
+```
 
 ---
 
-## 📞 Contact
+## 🔑 Default System Credentials
 
-**GitHub**: [SuryaX2/IMS](https://github.com/SuryaX2/IMS/)  
-**Email**: sekharsurya111@gmail.com
+| Role | Email Address | Password | Intended Use |
+| :--- | :--- | :--- | :--- |
+| **Administrator** | `rayapatiravitheja@gmail.com` | `Theja@1822` | Master oversight, reports, low-stock alerts, product setup |
+| **Warehouse Manager** | `manager@inventorypro.com` | `Manager@123` | Inbound receiving, warehouse stock management, transfers |
+| **Customer** | `99230040998@klu.ac.in` | `Customer@123` | Storefront catalog, cart, Razorpay checkout, return requests |
+
+---
+
+## 🔒 Security & Engineering Highlights
+
+- **Bcrypt Password Security**: All user passwords are encrypted using `bcryptjs` with salt round 10 before saving to MongoDB.
+- **Double-Entry Reconciliation**: Every stock change is mirrored by a permanent `StockLedger` event (`adjustment_add`, `adjustment_deduct`, `order_dispatch`, `purchase_receipt`), ensuring full visibility into inventory movements.
+- **Clean Dev/Prod Sanitization**: Verification OTPs are transmitted strictly via encrypted email and are never leaked to client responses or rendered in the DOM.
+- **Automated Razorpay Refunds**: Return authorizations trigger instant online refund requests with transaction tracking IDs saved to the database.
+- **Robust Error Handling**: Structured `ApiError` instances ensure error responses have predictable HTTP status codes and actionable messages.
+
+---
+
+## 📄 License & Author
+
+Distributed under the **MIT License**.
+
+- **Author**: Ravi Theja Rayapati
+- **Repository**: [GitHub — InventoryPro](https://github.com/rayapatiravitheja/Infoziant-MERN)
+- **Contact**: `rayapatiravitheja@gmail.com`
 
 ---
 
 <div align="center">
-  Made with ❤️ by <strong>SuryaX2</strong> &nbsp;|&nbsp; API v1.0.0
+  <strong>InventoryPro</strong> — Engineered with precision for modern supply-chain excellence.
 </div>

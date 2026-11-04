@@ -14,3 +14,4 @@ export { StockTransfer } from "./stock-transfer.model.js";
 export { StockAdjustment } from "./stock-adjustment.model.js";
 export { StockLedger } from "./stock-ledger.model.js";
 export { ReturnRequest } from "./return-request.model.js";
+export { AlertLog } from "./alert-log.model.js";

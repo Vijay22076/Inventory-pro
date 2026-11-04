@@ -21,6 +21,7 @@ const stockLedgerSchema = new mongoose.Schema(
                 "transfer_in",
                 "adjustment_add",
                 "adjustment_deduct",
+                "adjustment_sub",
                 "purchase_return",
             ],
             required: true,

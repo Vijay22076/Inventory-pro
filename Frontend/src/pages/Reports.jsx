@@ -15,6 +15,7 @@ import StockReport from "../components/reports/StockReport";
 import SalesReport from "../components/reports/SalesReport";
 import PurchaseReport from "../components/reports/PurchaseReport";
 import TopProductsReport from "../components/reports/TopProductsReport";
+import AlertAuditTab from "../components/reports/AlertAuditTab";
 import AuthContext from "../context/AuthContext";
 import { api } from "../api/api";
 import toast from "react-hot-toast";
@@ -33,16 +34,30 @@ const Reports = () => {
             const response = await api.post("/scheduler/trigger-alerts");
 
             if (response.data.success) {
-                const { sent, failed, noLowStock, total } = response.data.data;
-                toast.success(
-                    `Alert process completed! 📧 Sent: ${sent}, ✅ No low stock: ${noLowStock}, ❌ Failed: ${failed} (Total users: ${total})`
-                );
+                const data = response.data.data;
+                const { sent, failed, noLowStock, total, details } = data;
+                if (sent > 0) {
+                    const recipient = details?.[0]?.email || "Admin";
+                    const count = details?.[0]?.count || 0;
+                    toast.success(
+                        `📧 Alert delivered successfully to ${recipient}! (${count} items notified)`
+                    );
+                } else if (noLowStock > 0) {
+                    toast(
+                        `All items have sufficient stock (Stock ≥ threshold). No alert needed.`,
+                        { icon: "ℹ️" }
+                    );
+                } else {
+                    toast.error(`Alert failed to send: ${failed} errors.`);
+                }
+                return data;
             }
         } catch (error) {
             toast.error(
                 error.response?.data?.message ||
                     "Failed to trigger low stock alerts"
             );
+            return null;
         } finally {
             setTriggeringAlert(false);
         }
@@ -124,6 +139,25 @@ const Reports = () => {
             ),
             children: <TopProductsReport />,
         },
+        {
+            key: "audit",
+            label: (
+                <span
+                    className={`flex items-center ${isMobile ? "text-xs" : "text-sm"}`}
+                >
+                    <AlertOutlined
+                        className={`${isMobile ? "mr-1 text-xs" : "mr-1 text-sm"} text-indigo-600`}
+                    />
+                    {isMobile ? "Alerts & Audit" : "Alerts & Audit Logs"}
+                </span>
+            ),
+            children: (
+                <AlertAuditTab
+                    onTriggerAlert={triggerLowStockAlert}
+                    triggering={triggeringAlert}
+                />
+            ),
+        },
     ];
 
     const reportDescriptions = {
@@ -133,6 +167,8 @@ const Reports = () => {
             "Review your purchasing patterns, supplier performance, and procurement costs analysis.",
         "top-products":
             "Discover your most profitable products and understand customer preferences based on sales data.",
+        audit:
+            "View real-time transmission logs of automated and manual low-stock alerts, audit delivery status, and trigger test alerts.",
     };
 
     return (
@@ -255,17 +291,17 @@ const Reports = () => {
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3 sm:gap-2">
                         {user?.role === "admin" && (
-                            <Tooltip title="Manually trigger low stock alerts for all users (for testing purposes)">
+                            <Tooltip title="Manually trigger low stock alerts for all users and view audit history">
                                 <Button
                                     type="primary"
                                     icon={<AlertOutlined />}
-                                    onClick={triggerLowStockAlert}
+                                    onClick={async () => {
+                                        setActiveTab("audit");
+                                        await triggerLowStockAlert();
+                                    }}
                                     loading={triggeringAlert}
                                     size={isMobile ? "middle" : "default"}
-                                    disabled={
-                                        schedulerStatus &&
-                                        !schedulerStatus.isRunning
-                                    }
+                                    className="bg-indigo-600 hover:bg-indigo-500 font-semibold"
                                 >
                                     {isMobile
                                         ? "Test Alerts"

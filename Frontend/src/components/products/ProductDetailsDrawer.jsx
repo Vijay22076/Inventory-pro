@@ -22,7 +22,25 @@ const ProductDetailsDrawer = ({
     width,
     height,
 }) => {
+    const [selectedImageIndex, setSelectedImageIndex] = React.useState(0);
+
+    React.useEffect(() => {
+        setSelectedImageIndex(0);
+    }, [product]);
+
     if (!product) return null;
+
+    const allImages =
+        product.product_images && product.product_images.length > 0
+            ? product.product_images
+            : product.product_image && product.product_image !== "default-product.png"
+            ? [product.product_image]
+            : [];
+
+    const activeImageUrl =
+        allImages[selectedImageIndex] ||
+        product.product_image ||
+        "/default-product.png";
 
     const getStockStatus = (stock) => {
         if (stock === 0) {
@@ -95,23 +113,54 @@ const ProductDetailsDrawer = ({
         >
             <div className="space-y-5">
                 <div className="bg-white rounded-3xl p-5 border-2 border-slate-400/50">
-                    <div className="flex gap-5">
-                        <div className="flex-shrink-0">
-                            <div className="w-28 h-full rounded-lg overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center">
-                                <Image
-                                    src={product.product_image}
-                                    alt={product.product_name}
-                                    className="w-full h-full object-cover"
-                                    fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMIAAADDCAYAAADQvc6U"
-                                    preview={{
-                                        mask: (
-                                            <div className="text-white text-xs font-medium">
-                                                Preview
-                                            </div>
-                                        ),
-                                    }}
-                                />
+                    <div className="flex flex-col sm:flex-row gap-5">
+                        <div className="flex-shrink-0 flex flex-col items-center">
+                            <div className="w-32 h-32 rounded-xl overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center relative shadow-sm">
+                                <Image.PreviewGroup items={allImages.length > 0 ? allImages : [activeImageUrl]}>
+                                    <Image
+                                        src={activeImageUrl}
+                                        alt={product.product_name}
+                                        className="w-full h-full object-cover"
+                                        fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMIAAADDCAYAAADQvc6U"
+                                        preview={{
+                                            mask: (
+                                                <div className="text-white text-xs font-medium">
+                                                    Zoom Gallery
+                                                </div>
+                                            ),
+                                        }}
+                                    />
+                                </Image.PreviewGroup>
+                                {allImages.length > 1 && (
+                                    <div className="absolute bottom-1 right-1 bg-black/60 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">
+                                        {selectedImageIndex + 1}/{allImages.length}
+                                    </div>
+                                )}
                             </div>
+
+                            {/* Multi-image thumbnail strip */}
+                            {allImages.length > 1 && (
+                                <div className="flex items-center gap-1.5 mt-2.5 max-w-[150px] overflow-x-auto pb-1">
+                                    {allImages.map((img, idx) => (
+                                        <button
+                                            key={idx}
+                                            type="button"
+                                            onClick={() => setSelectedImageIndex(idx)}
+                                            className={`w-7 h-7 rounded-md overflow-hidden border-2 flex-shrink-0 transition-all ${
+                                                selectedImageIndex === idx
+                                                    ? "border-indigo-600 ring-2 ring-indigo-200"
+                                                    : "border-gray-200 opacity-60 hover:opacity-100"
+                                            }`}
+                                        >
+                                            <img
+                                                src={img}
+                                                alt={`Thumbnail ${idx + 1}`}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex-1 min-w-0">
@@ -123,9 +172,14 @@ const ProductDetailsDrawer = ({
                             </Title>
                             <div className="flex items-center gap-2 mb-3">
                                 <TagOutlined className="text-gray-400 text-xs" />
-                                <Text className="text-sm text-gray-600">
+                                <Text className="text-sm text-gray-600 font-mono">
                                     {product.product_code}
                                 </Text>
+                                {allImages.length > 1 && (
+                                    <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-medium border border-indigo-100">
+                                        {allImages.length} Photos
+                                    </span>
+                                )}
                             </div>
                             <div
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border"

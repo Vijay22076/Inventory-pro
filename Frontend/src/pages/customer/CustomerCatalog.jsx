@@ -323,6 +323,11 @@ const CustomerCatalog = () => {
                                         >
                                             <ShopOutlined className="text-5xl text-slate-300" />
                                         </div>
+                                        {p.product_images && p.product_images.length > 1 && (
+                                            <div className="absolute top-3 left-3 bg-slate-900/70 text-white text-[11px] px-2 py-0.5 rounded-full backdrop-blur-sm font-medium flex items-center gap-1 shadow">
+                                                <span>📷</span> {p.product_images.length} photos
+                                            </div>
+                                        )}
                                         <div className="absolute top-3 right-3">
                                             {inStock ? (
                                                 <Tag color="success" className="font-semibold shadow-sm">
@@ -340,7 +345,7 @@ const CustomerCatalog = () => {
                                         <div>
                                             <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
                                                 <span className="font-mono">{p.product_code}</span>
-                                                <span>{p.category?.category_name || "General"}</span>
+                                                <span className="font-medium text-slate-500">{p.category_name || p.category?.category_name || "General"}</span>
                                             </div>
                                             <h3 className="font-bold text-slate-900 text-base leading-snug line-clamp-2">
                                                 {p.product_name}
@@ -449,13 +454,36 @@ const CustomerCatalog = () => {
                 ) : (
                     <div className="py-4 space-y-5">
                         {/* Product Summary */}
-                        <div className="p-4 bg-slate-50 rounded-xl flex items-center justify-between border border-slate-200">
-                            <div>
-                                <h4 className="font-bold text-slate-900 m-0">{selectedProduct?.product_name}</h4>
-                                <span className="text-xs text-slate-500 font-mono">{selectedProduct?.product_code}</span>
+                        <div className="p-4 bg-slate-50 rounded-xl flex items-center gap-4 border border-slate-200">
+                            <div className="w-16 h-16 rounded-lg bg-white border border-slate-200 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                                {selectedProduct?.product_image ? (
+                                    <img
+                                        src={selectedProduct.product_image}
+                                        alt={selectedProduct.product_name}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <ShopOutlined className="text-xl text-slate-400" />
+                                )}
                             </div>
-                            <div className="text-right">
-                                <span className="text-sm text-slate-500">Unit Price</span>
+                            <div className="flex-1 min-w-0">
+                                <h4 className="font-bold text-slate-900 m-0 truncate">{selectedProduct?.product_name}</h4>
+                                <span className="text-xs text-slate-500 font-mono">{selectedProduct?.product_code}</span>
+                                {selectedProduct?.product_images?.length > 1 && (
+                                    <div className="flex gap-1.5 mt-1.5">
+                                        {selectedProduct.product_images.map((img, idx) => (
+                                            <img
+                                                key={idx}
+                                                src={img}
+                                                alt=""
+                                                className="w-6 h-6 rounded-md object-cover border border-slate-200 shadow-xs"
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                                <span className="text-xs text-slate-500 block">Unit Price</span>
                                 <div className="text-lg font-extrabold text-slate-900">
                                     ₹{(selectedProduct?.selling_price || 0).toLocaleString()}
                                 </div>

@@ -13,9 +13,13 @@ const ProductModal = ({
     units,
     warehouses = [],
     editingProduct,
+    images = [],
     imageUrl,
     onSave,
     onCancel,
+    onAddFiles,
+    onRemoveImage,
+    onSetCover,
     onImageChange,
 }) => {
     return (
@@ -399,11 +403,20 @@ const ProductModal = ({
                                 <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
                                     <div className="w-1 h-4 bg-indigo-500 rounded-full"></div>
                                     <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-                                        Product Image
+                                        Product Gallery & Images
                                     </h3>
                                 </div>
                                 <ProductImageUpload
-                                    imageUrl={imageUrl}
+                                    images={
+                                        images && images.length > 0
+                                            ? images
+                                            : imageUrl
+                                            ? [{ id: "single", url: imageUrl, isExisting: true }]
+                                            : []
+                                    }
+                                    onAddFiles={onAddFiles}
+                                    onRemoveImage={onRemoveImage}
+                                    onSetCover={onSetCover}
                                     onChange={onImageChange}
                                 />
                             </div>
