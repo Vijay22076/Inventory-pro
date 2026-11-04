@@ -324,8 +324,8 @@ All responses follow a consistent envelope structure:
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/rayapatiravitheja/Infoziant-MERN.git
-cd Infoziant-MERN
+git clone (https://github.com/rayapatiravitheja/Inventory-pro)
+cd Inventory-pro
 ```
 
 ### 2. Backend Setup
